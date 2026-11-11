@@ -655,7 +655,10 @@ async function resetPw(){const u=elx("loginU").value.trim().toLowerCase(),err=el
   const r=await sb.auth.resetPasswordForEmail(u,{redirectTo:location.origin+location.pathname});
   err.textContent=r.error?r.error.message:"Password reset email sent."}
 async function afterSignIn(){
-  const u=(await sb.auth.getUser()).data.user;ME.email=((u&&u.email)||"").toLowerCase();
+  let u=(await sb.auth.getUser()).data.user;ME.email=((u&&u.email)||"").toLowerCase();
+  while(u&&u.user_metadata&&u.user_metadata.must_change){const np=prompt("You are using a temporary password. Choose a new password (8 or more characters):");
+    if(!np||np.length<8){alert("The new password must be 8 or more characters.");continue}
+    const r=await sb.auth.updateUser({password:np,data:{must_change:false}});if(r.error){alert(r.error.message);continue}u=r.data.user}
   const a=await sb.from("allowed_users").select("email,full_name,role").eq("email",ME.email).maybeSingle();
   if(!a.data){document.querySelector("main").innerHTML=`<div class="panel"><b>${esc(ME.email)}</b> is signed in but has not been given access yet. Ask an Admin to add this email, then sign in again.</div>`;
     elx("hdrStatus").textContent="No access";elx("lockBtn").style.display="none";SIGNED=true;closeLogin();return}
@@ -1140,15 +1143,16 @@ function renderRules(){const el=$("#t-rules"),s=S.settings;
   $("#saveRe").onclick=async()=>{read();await put("settings",{key:"settings",value:S.settings});await log("Settings changed");const k=Object.keys(S.rosters).sort().find(k=>S.rosters[k].status!=="published");if(k)await autoPopulateFrom(k,"rules changed");renderRules()};
 }
 /* ===================== RENDER: STORAGE ===================== */
+const tempPw=()=>{const c="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789",a=new Uint32Array(10);crypto.getRandomValues(a);return "Vnh-"+Array.from(a,x=>c[x%c.length]).join("")};
 async function renderUsers(host){
   const [u,p]=await Promise.all([sb.from("allowed_users").select("*").order("created_at"),sb.from("role_permissions").select("*")]);
   if(u.error){host.innerHTML=`<span class="muted">${esc(u.error.message)}</span>`;return}
   const opt=r=>ROLES.map(x=>`<option${x===r?" selected":""}>${x}</option>`).join("");
   const perms=ROLES.map(r=>(p.data||[]).find(x=>x.role===r)||{role:r});
-  host.innerHTML=`<b>Users &amp; roles</b> <span class="muted">Add a person's email here. They then open the app and select Create account with that email.</span>
+  host.innerHTML=`<b>Users &amp; roles</b> <span class="muted">Add a person and a temporary password. Give them the password; they must choose their own at first sign-in.</span>
   <table style="width:100%;border-collapse:collapse;margin:8px 0"><tr class="muted" style="text-align:left"><th>Email</th><th>Name</th><th>Role</th><th></th></tr>
-  ${u.data.map(x=>`<tr><td>${esc(x.email)}</td><td>${esc(x.full_name||"")}</td><td><select data-ur="${esc(x.email)}">${opt(x.role)}</select></td><td><button class="btn danger" data-ud="${esc(x.email)}">Remove</button></td></tr>`).join("")}</table>
-  <form id="userAdd" class="row"><input type="email" id="uaE" placeholder="email" required><input id="uaN" placeholder="full name"><select id="uaR">${opt("Trainee")}</select><button class="btn" type="submit">Add user</button></form>
+  ${u.data.map(x=>`<tr><td>${esc(x.email)}</td><td>${esc(x.full_name||"")}</td><td><select data-ur="${esc(x.email)}">${opt(x.role)}</select></td><td><button class="btn ghost" data-up="${esc(x.email)}">Reset password</button> <button class="btn danger" data-ud="${esc(x.email)}">Remove</button></td></tr>`).join("")}</table>
+  <form id="userAdd" class="row"><input type="email" id="uaE" placeholder="email" required><input id="uaN" placeholder="full name"><select id="uaR">${opt("Trainee")}</select><input id="uaP" value="${tempPw()}" minlength="8" required title="Temporary password"><button class="btn" type="submit">Add user</button></form>
   <div style="margin-top:12px"><b>What each role can do</b></div>
   <table style="border-collapse:collapse;margin-top:6px"><tr class="muted" style="text-align:left"><th style="padding-right:18px">Role</th><th style="padding-right:18px">Edit roster</th><th>Manage users</th></tr>
   ${perms.map(x=>`<tr><td>${x.role}</td><td><input type="checkbox" data-pe="${x.role}" ${x.can_edit?"checked":""} ${x.role==="Admin"?"disabled":""}></td><td><input type="checkbox" data-pm="${x.role}" ${x.can_manage_users?"checked":""} ${x.role==="Admin"?"disabled":""}></td></tr>`).join("")}</table>`;
@@ -1157,8 +1161,14 @@ async function renderUsers(host){
     done(await sb.from("allowed_users").update({role:s.value}).eq("email",s.dataset.ur),"Role updated");await log(`Role of ${s.dataset.ur} set to ${s.value}`)});
   host.querySelectorAll("[data-ud]").forEach(b=>b.onclick=async()=>{const e=b.dataset.ud;if(e===ME.email){toast("You cannot remove yourself.");return}
     if(!confirm(`Remove ${e}?`))return;done(await sb.from("allowed_users").delete().eq("email",e),"User removed");await log(`User removed: ${e}`)});
-  host.querySelector("#userAdd").onsubmit=async ev=>{ev.preventDefault();const e=host.querySelector("#uaE").value.trim().toLowerCase();
-    done(await sb.from("allowed_users").insert({email:e,full_name:host.querySelector("#uaN").value.trim()||null,role:host.querySelector("#uaR").value}),"User added");await log(`User added: ${e}`)};
+  const show=(e,pw)=>prompt(`Temporary password for ${e}. Copy it now; it is not shown again.`,pw);
+  host.querySelector("#userAdd").onsubmit=async ev=>{ev.preventDefault();const e=host.querySelector("#uaE").value.trim().toLowerCase(),pw=host.querySelector("#uaP").value;
+    const r=await sb.rpc("admin_create_user",{p_email:e,p_name:host.querySelector("#uaN").value.trim(),p_role:host.querySelector("#uaR").value,p_password:pw});
+    if(r.error){toast(r.error.message);return}await log(`User added: ${e}`);show(e,pw);renderUsers(host)};
+  host.querySelectorAll("[data-up]").forEach(b=>b.onclick=async()=>{const e=b.dataset.up,pw=tempPw(),u=(u0=>u0.data.find(x=>x.email===e))(await sb.from("allowed_users").select("*"));
+    if(!confirm(`Set a new temporary password for ${e}?`))return;
+    const r=await sb.rpc("admin_create_user",{p_email:e,p_name:u&&u.full_name||"",p_role:u?u.role:"Trainee",p_password:pw});
+    if(r.error){toast(r.error.message);return}await log(`Password reset: ${e}`);show(e,pw)});
   host.querySelectorAll("[data-pe]").forEach(c=>c.onchange=async()=>done(await sb.from("role_permissions").update({can_edit:c.checked}).eq("role",c.dataset.pe),"Saved"));
   host.querySelectorAll("[data-pm]").forEach(c=>c.onchange=async()=>done(await sb.from("role_permissions").update({can_manage_users:c.checked}).eq("role",c.dataset.pm),"Saved"));
 }
