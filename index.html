@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VNH Lab Roster</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+/* ===== VNH Lab Roster — H&E stain palette, Bahnschrift + Segoe UI (both ship with Windows, work offline) ===== */
+:root{
+  --ink:#1B2140;--ink2:#4A5175;--muted:#6B7290;--line:#D9DDEA;--line2:#E8EBF3;
+  --bench:#EEF1F7;--paper:#FFFFFF;--hema:#3B3F9F;--hema-d:#2A2D7A;--hema-l:#DDE1F6;--hema-xl:#F1F3FC;
+  --eosin:#C2386B;--eosin-l:#F4C3D3;--amber:#F2B33D;--amber-l:#FCE7B6;--leaf:#CFE6C2;--leaf-d:#2E7D4F;
+  --bad:#D62839;--bad-l:#FDE3E6;--ok:#2E7D4F;--warn:#9A6700;
+  --am:#DDE1F6;--pm:#F4C3D3;--amoc:#2A2D7A;--off:#FFFFFF;--ho:#CFE6C2;--lv:#FCE7B6;
+  --head:"Bahnschrift","DIN Alternate","Arial Narrow","Segoe UI",system-ui,sans-serif;
+  --body:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+  --r:6px;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bench);color:var(--ink);font:14px/1.5 var(--body)}
+:focus-visible{outline:2px solid var(--hema);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* top bar: a slide label — stain strip on the left edge */
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 20px;padding:14px 20px 12px;background:var(--paper);border-bottom:1px solid var(--line);position:relative}
+header::before{content:"";position:absolute;left:0;top:0;bottom:0;width:8px;background:linear-gradient(var(--hema) 0 62%,var(--eosin) 62%)}
+.brand{display:flex;align-items:center;gap:12px;padding-left:6px}
+.brand svg{flex:none}
+header h1{font:600 20px/1.1 var(--head);letter-spacing:.2px;margin:0}
+header .sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+#hdrStatus{font-size:12.5px;color:var(--ink2);background:var(--hema-xl);border:1px solid var(--line);border-radius:20px;padding:4px 12px}
+
+nav{display:flex;gap:2px;padding:0 14px;background:var(--paper);border-bottom:1px solid var(--line);overflow-x:auto;position:sticky;top:0;z-index:20}
+nav button{display:flex;align-items:center;gap:7px;border:0;background:none;padding:11px 12px 10px;font:500 14px var(--body);color:var(--ink2);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+nav button svg{opacity:.7}
+nav button:hover{color:var(--ink)}
+nav button.on{color:var(--hema);border-bottom-color:var(--hema)}
+nav button.on svg{opacity:1}
+nav button[data-t=help]{margin-left:auto}
+
+main{padding:18px 20px 40px;max-width:100%}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--hema);background:var(--hema);color:#fff;border-radius:var(--r);padding:7px 12px;font:500 13.5px var(--body);cursor:pointer;line-height:1.2;transition:background .15s;white-space:nowrap}
+.btn:hover{background:var(--hema-d)}
+.btn.ghost{background:var(--paper);color:var(--hema);border-color:var(--line)}
+.btn.ghost:hover{border-color:var(--hema);background:var(--hema-xl)}
+.btn.danger{background:var(--paper);color:var(--bad);border-color:#F2B8BF}
+.btn.danger:hover{background:var(--bad-l)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+select,input{font:inherit;padding:6px 9px;border:1px solid var(--line);border-radius:var(--r);background:var(--paper);color:var(--ink)}
+select:focus,input:focus{border-color:var(--hema)}
+input[type=checkbox]{accent-color:var(--hema);width:16px;height:16px}
+.muted{color:var(--muted);font-size:12.5px}
+h2,h3{font-family:var(--head);font-weight:600}
+
+/* roster head */
+.rhead{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;margin-bottom:12px}
+.mnav{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.mtitle{font:600 34px/1 var(--head);margin:0 6px;letter-spacing:-.3px;white-space:nowrap}
+.mtitle span{color:var(--muted);font-weight:400}
+.iconbtn{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--line);background:var(--paper);border-radius:50%;cursor:pointer;color:var(--hema)}
+.iconbtn:hover{border-color:var(--hema);background:var(--hema-xl)}
+.msel{max-width:150px}
+.chip{display:inline-block;padding:3px 10px;border-radius:20px;font:600 12px var(--body)}
+.chip.draft{background:var(--amber-l);color:#7A5200}.chip.published{background:var(--leaf);color:#1F5A37}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tgroup{display:flex;gap:4px;align-items:center;padding-left:10px;border-left:1px solid var(--line)}
+.tgroup:first-child{border-left:0;padding-left:0}
+.tlabel{font-size:12px;color:var(--muted);margin-right:2px}
+.hint{font-size:12.5px;color:var(--muted);margin:2px 0 12px;max-width:110ch}
+
+/* check strip */
+.checks{display:flex;flex-wrap:wrap;gap:0;background:var(--paper);border:1px solid var(--line);border-radius:var(--r);margin-bottom:14px;overflow:hidden}
+.checks .ck{display:flex;align-items:center;gap:10px;padding:10px 16px;border-right:1px solid var(--line2);min-width:150px;flex:1}
+.checks .ck:last-child{border-right:0}
+.ck .n{font:600 24px/1 var(--head);font-variant-numeric:tabular-nums}
+.ck .l{font-size:12px;color:var(--muted);line-height:1.25}
+.ck.good .n{color:var(--ok)}.ck.badck{background:var(--bad-l)}.ck.badck .n{color:var(--bad)}
+.ck .dot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--line)}
+.ck.good .dot{background:var(--ok)}.ck.badck .dot{background:var(--bad)}
+.meta{font-size:12px;color:var(--muted);margin:-6px 0 12px}
+
+/* pills */
+.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill.draft{background:var(--amber-l);color:#7A5200}.pill.published{background:var(--leaf);color:#1F5A37}
+.pill.PM{background:var(--pm);color:#7A1F45}.pill.OC{background:var(--hema-l);color:var(--hema-d)}.pill.AM{background:#E3EEDB;color:#2C5A2F}.pill.LV{background:var(--amber-l);color:#7A5200}
+
+/* the roster grid */
+.gridwrap{overflow:auto;border:1px solid var(--line);border-radius:var(--r);max-height:70vh;background:var(--paper)}
+table.grid{border-collapse:separate;border-spacing:0;font:12px/1 var(--body)}
+table.grid th,table.grid td{border-right:1px solid var(--line2);border-bottom:1px solid var(--line2);padding:0;text-align:center;white-space:nowrap;height:28px}
+table.grid thead th{position:sticky;top:0;background:var(--hema-xl);z-index:2;font:600 13px var(--head);color:var(--ink);height:26px}
+table.grid thead tr:nth-child(2) th{top:26px;font:500 11px var(--body);color:var(--muted);height:20px;border-bottom:2px solid var(--line)}
+table.grid th.wk{background:#E4E7F0}table.grid th.hol{background:var(--leaf)}
+table.grid th.today{background:var(--hema);color:#fff}
+table.grid .sticky{position:sticky;left:0;background:var(--paper);z-index:1;text-align:left;min-width:160px;padding:0 10px;font-weight:500}
+table.grid thead .sticky{z-index:3;background:var(--hema-xl)}
+table.grid .sticky2{position:sticky;left:160px;background:var(--paper);z-index:1;min-width:76px;border-right:2px solid var(--line)}
+table.grid thead .sticky2{z-index:3;background:var(--hema-xl)}
+td.c{cursor:pointer;min-width:44px;font-weight:600;font-size:11.5px;position:relative}
+td.c.AM{background:var(--am);color:var(--hema-d);font-weight:500}
+td.c.PM{background:var(--pm);color:#7A1F45}
+td.c.AMOC{background:var(--amoc);color:#fff}
+td.c.OFF{background:var(--off);color:#B4BACB;font-weight:400}
+td.c.HO{background:var(--ho);color:#1F5A37}
+td.c.LV{background:var(--lv);color:#7A5200}
+td.c.OC{background:#4A4F6A;color:#fff}td.c.other{background:#EEE}
+td.c.wkcol{box-shadow:inset 0 0 0 999px rgba(27,33,64,.035)}
+td.c:hover{outline:2px solid var(--ink);outline-offset:-2px;z-index:1}
+td.c.flag{outline:2px solid var(--bad);outline-offset:-2px}
+td.c.flag::after{content:"";position:absolute;top:2px;right:2px;width:6px;height:6px;border-radius:50%;background:var(--bad)}
+td.c.pin{box-shadow:inset 0 0 0 2px #7030A0}
+td.c.pin::before{content:"";position:absolute;left:0;top:0;border:5px solid transparent;border-left-color:#7030A0;border-top-color:#7030A0}
+tbody tr:hover td.sticky,tbody tr:hover td.sticky2{background:var(--hema-xl)}
+td.t{background:#FAFBFE;min-width:40px;font:500 12.5px var(--head);font-variant-numeric:tabular-nums;color:var(--ink2)}
+td.t.first{border-left:2px solid var(--line)}
+td.t.bad{background:var(--bad);color:#fff;font-weight:700}
+tr.cover td{font:600 12.5px var(--head);background:#F6F7FB}
+tr.cover td.sticky{font:600 12px var(--body)}
+tr.cover:first-of-type td{border-top:2px solid var(--line)}
+td.bad{background:var(--bad)!important;color:#fff}
+table.grid td.hl{background:var(--amber-l)!important;font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;margin-top:10px;color:var(--ink2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{display:inline-block;min-width:34px;height:18px;padding:0 4px;border:1px solid var(--line);border-radius:3px;font:600 10.5px/16px var(--body);text-align:center}
+.sw.c{position:relative}
+.sw.AM{background:var(--am);color:var(--hema-d)}.sw.PM{background:var(--pm);color:#7A1F45}.sw.AMOC{background:var(--amoc);color:#fff;border-color:var(--amoc)}
+.sw.OFF{background:#fff;color:#9AA1B5}.sw.HO{background:var(--ho);color:#1F5A37}.sw.LV{background:var(--lv);color:#7A5200}
+
+.issues{max-height:240px;overflow:auto;font-size:13px;margin:6px 0 0;padding-left:18px}
+.issues li{margin:2px 0}.issues li.bad{color:var(--bad)}.issues li.ok{color:var(--ok)}
+table.list{border-collapse:collapse;width:100%;font-size:13px}
+table.list th,table.list td{border-bottom:1px solid var(--line2);padding:7px 8px;text-align:left;vertical-align:middle}
+table.list th{background:var(--hema-xl);font:600 12.5px var(--body);color:var(--ink2)}
+table.list tr:hover td{background:#FAFBFE}
+.kpi{display:flex;flex-wrap:wrap;gap:10px}
+.kpi div{background:var(--hema-xl);border:1px solid var(--line);border-radius:var(--r);padding:8px 12px;min-width:120px;font-size:12.5px;color:var(--muted)}
+.kpi b{display:block;font:600 20px var(--head);color:var(--ink)}
+.bar{height:8px;background:var(--line2);border-radius:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--hema)}
+.panel.help ul,.panel.help ol{margin:6px 0 0;padding-left:20px;max-width:100ch}.panel.help li{margin:4px 0}
+mark{background:#FFE58A;padding:0 1px;border-radius:2px}
+
+#toast{position:fixed;right:18px;bottom:18px;background:var(--ink);color:#fff;padding:11px 14px;border-radius:var(--r);max-width:380px;display:none;z-index:60;font-size:13px;box-shadow:0 10px 30px rgba(27,33,64,.25)}
+#cellmenu{position:fixed;background:var(--paper);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 12px 32px rgba(27,33,64,.2);padding:6px;display:none;z-index:50;min-width:190px}
+#cellmenu button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:none;padding:6px 8px;font:inherit;cursor:pointer;border-radius:4px}
+#cellmenu button:hover{background:var(--hema-xl)}
+#cellmenu .sw{min-width:44px}
+
+/* building overlay (shows while workers search) */
+#busy{position:fixed;inset:0;background:rgba(238,241,247,.72);backdrop-filter:blur(2px);display:none;place-items:center;z-index:70}
+#busy .box{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:18px 22px;display:flex;gap:14px;align-items:center;box-shadow:0 16px 40px rgba(27,33,64,.18)}
+#busy .slide{width:44px;height:16px;border-radius:3px;background:linear-gradient(90deg,var(--hema-l),var(--pm),var(--hema-l));background-size:200% 100%;animation:stain 1.1s linear infinite;border:1px solid var(--line)}
+@keyframes stain{to{background-position:-200% 0}}
+#busy b{font:600 15px var(--head)}
+
+/* read-only lock + login */
+nav button:disabled{opacity:.38;cursor:not-allowed}
+nav button:disabled:hover{color:var(--ink2)}
+.hdrR{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+#hdrStatus.ro{background:var(--amber-l);color:#7A5200;border-color:#EBCB7A}
+body.locked td.c{cursor:default}
+body.locked td.c:hover{outline:0}
+#login{position:fixed;inset:0;background:rgba(27,33,64,.5);backdrop-filter:blur(2px);display:none;place-items:center;z-index:80}
+#login form{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:22px 22px 18px;width:min(350px,92vw);box-shadow:0 18px 44px rgba(27,33,64,.28);display:grid;gap:11px;border-top:6px solid var(--hema)}
+#login h2{margin:0;font-size:20px}
+#login label{display:grid;gap:4px;font-size:12.5px;color:var(--ink2)}
+#login input{width:100%;padding:8px 10px}
+#loginErr{color:var(--bad);font-size:12.5px;min-height:18px}
+.authgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:8px;max-width:760px}
+.authgrid label{display:grid;gap:4px;font-size:12.5px;color:var(--ink2)}
+.print-title{display:none;font:600 15px var(--head);margin-bottom:4px}
+@page{size:A4 landscape;margin:6mm}
+@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  header,nav,.noprint,#toast,#cellmenu,#busy,#login,.kpi,.checks,.meta,.issues-panel,.hint{display:none!important}body{background:#fff}main{padding:0}.panel{border:0;padding:0;margin:0 0 4px}
+  .gridwrap{max-height:none;overflow:visible;border:0}table.grid{font-size:7.5px}table.grid th,table.grid td{height:auto;padding:1px 2px}
+  td.c{min-width:0;font-size:7.5px}table.grid .sticky,table.grid .sticky2,table.grid thead th{position:static}table.grid .sticky{min-width:0}
+  .print-title{display:block!important}
+  /* stretch the roster to fill the whole A4 landscape page, both ways */
+  #t-roster .panel:has(table.grid){height:196mm;display:flex;flex-direction:column;margin:0;page-break-inside:avoid;break-inside:avoid}
+  #t-roster .gridwrap{flex:1 1 auto;min-height:0;display:flex}
+  table.grid{width:100%;height:100%;table-layout:fixed;font-size:8.5px}
+  table.grid thead th{font-size:9px}table.grid thead tr:nth-child(2) th{font-size:7.5px}
+  table.grid .sticky{width:34mm;padding:0 4px;font-size:8.5px}table.grid .sticky2{width:15mm}
+  td.c{font-size:8px}td.t{font-size:8.5px}tr.cover td{font-size:8.5px}
+  .legend{margin-top:2mm;font-size:8.5px}.legend .sw{height:13px;line-height:11px;font-size:8px}
+  td.c.flag::after,td.c.pin::before{display:none}}
+@media (max-width:720px){main{padding:12px}.mtitle{font-size:26px}header h1{font-size:17px}table.grid .sticky{min-width:118px}table.grid .sticky2{left:118px}.tgroup{border-left:0;padding-left:0}.checks .ck{min-width:50%}}
+</style>
+
+</head>
+<body>
+<header>
+  <div class="brand">
+    <svg width="38" height="38" viewBox="0 0 38 38" aria-hidden="true"><rect x="2" y="11" width="34" height="16" rx="2" fill="#fff" stroke="#3B3F9F" stroke-width="2"/><rect x="2" y="11" width="11" height="16" rx="2" fill="#3B3F9F"/><circle cx="24" cy="19" r="4.5" fill="#F4C3D3" stroke="#C2386B" stroke-width="1.5"/></svg>
+    <div><h1>VNH Laboratory Services staff roster</h1><div class="sub">Vanuatu National Hospital, Port Vila. AM and PM shifts with home on-call, built to the roster rules and the Employment Act.</div></div>
+  </div>
+  <div class="hdrR"><div id="hdrStatus">Loading…</div><button class="btn" id="lockBtn" type="button">Unlock</button><button class="btn ghost" id="outBtn" type="button">Sign out</button></div>
+</header>
+<nav id="tabs" aria-label="Sections">
+  <button data-t="roster" class="on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M8 13h2M14 13h2M8 17h2"/></svg>Roster</button>
+  <button data-t="staff"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.8 2.6 2.5 3 5.2"/></svg>Staff &amp; Roles</button>
+  <button data-t="leave"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20c7 0 12-5 12-12V4h-4C5 4 4 12 4 20z"/><path d="M4 20 14 10"/></svg>Leave</button>
+  <button data-t="holidays"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v3M5.6 5.6l2.1 2.1M3 12h3M18 12h3M16.3 7.7l2.1-2.1"/><circle cx="12" cy="13" r="4"/><path d="M4 21h16"/></svg>Holidays</button>
+  <button data-t="rules"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7h14M7 7l-3 7a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0z"/></svg>Rules &amp; Settings</button>
+  <button data-t="data"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>Storage &amp; Backup</button>
+  <button data-t="help"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg>Help</button>
+</nav>
+<main>
+  <section id="t-roster"></section>
+  <section id="t-staff" hidden></section>
+  <section id="t-leave" hidden></section>
+  <section id="t-holidays" hidden></section>
+  <section id="t-rules" hidden></section>
+  <section id="t-data" hidden></section>
+  <section id="t-help" hidden></section>
+</main>
+<div id="cellmenu" role="menu"></div>
+<div id="busy" role="status" aria-live="polite"><div class="box"><div class="slide"></div><div><b id="busyMsg">Building roster…</b><div class="muted" id="busySub">Checking every rule and the Employment Act</div></div></div></div>
+<div id="login" role="dialog" aria-modal="true" aria-labelledby="loginT"><form id="loginForm" autocomplete="off">
+  <h2 id="loginT">Sign in</h2>
+  <div class="muted">Sign in with your work email. Editors can then select Unlock to change the roster.</div>
+  <label>Email<input id="loginU" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+  <label>Password<input id="loginP" type="password" autocomplete="current-password" required></label>
+  <div id="loginErr" role="alert"></div>
+  <div class="row" style="justify-content:flex-end"><button class="btn ghost" type="button" id="loginReset">Forgot password</button><button class="btn ghost" type="button" id="loginSignUp">Create account</button><button class="btn" type="submit" id="loginGo">Sign in</button></div>
+</form></div>
+<div id="toast"></div>
+
+<script id="seed" type="application/json">{"staff": [{"name": "Mary Ann Tosul", "dept": "Microbiology", "amOnly": false, "active": true, "weekendLead": false}, {"name": "Robert Tom", "dept": "Hematology", "amOnly": false, "active": true, "weekendLead": false}, {"name": "Leiwia Dick", "dept": "Serology, F…", "amOnly": false, "active": true, "weekendLead": false}, {"name": "Escar Avock", "dept": "Biochemistry", "amOnly": false, "active": true, "weekendLead": false}, {"name": "Lucienne Toangw…", "dept": "Cytology", "amOnly": false, "active": true, "weekendLead": false}, {"name": "Susan Philemon", "dept": "QC, Inv", "amOnly": false, "active": true, "weekendLead": false}, {"name": "Jeffrey Kalomor", "dept": "Serology", "amOnly": false, "active": true, "weekendLead": false}, {"name": "Justina Gaviga", "dept": "M, RP, Inv", "amOnly": false, "active": true, "weekendLead": true}, {"name": "Eddie Mansing", "dept": "BB, RP", "amOnly": false, "active": true, "weekendLead": true}, {"name": "Amos Temalang", "dept": "Hematology", "amOnly": false, "active": true, "weekendLead": false}, {"name": "Anndona Bani", "dept": "S, RP", "amOnly": false, "active": true, "weekendLead": true}, {"name": "Jason Whitford", "dept": "Micro, Mo…", "amOnly": false, "active": true, "weekendLead": false}, {"name": "Derickson Tari", "dept": "Histology", "amOnly": false, "active": true, "weekendLead": false}, {"name": "Ray Bulemaru", "dept": "BB, RP", "amOnly": false, "active": true, "weekendLead": false}, {"name": "Abigail Kalontano", "dept": "Histology", "amOnly": false, "active": true, "weekendLead": false}, {"name": "Kalki Sero", "dept": "Histology", "amOnly": false, "active": true, "weekendLead": false}, {"name": "Samuel Bakon", "dept": "Biochemistry", "amOnly": false, "active": true, "weekendLead": false}, {"name": "Raymond Seule", "dept": "TB, RP", "amOnly": false, "active": true, "weekendLead": false}, {"name": "Shirley Iercet", "dept": "BB, RP, S", "amOnly": false, "active": true, "weekendLead": true}, {"name": "Rina Morrison", "dept": "Hematology", "amOnly": false, "active": true, "weekendLead": true}, {"name": "Evaneth Banga", "dept": "RP", "amOnly": true, "active": true, "weekendLead": false}, {"name": "Devlyn Ala", "dept": "RP", "amOnly": true, "active": true, "weekendLead": false}], "leave": [{"name": "Leiwia Dick", "from": "2026-12-01", "to": "2026-12-31", "type": "Holiday"}, {"name": "Escar Avock", "from": "2026-12-07", "to": "2026-12-31", "type": "Holiday"}, {"name": "Rina Morrison", "from": "2026-12-14", "to": "2026-12-31", "type": "Holiday"}, {"name": "Raymond Seule", "from": "2026-12-14", "to": "2026-12-31", "type": "Holiday"}], "holidays": [{"date": "2026-12-25", "name": "Christmas Day"}, {"date": "2026-12-26", "name": "Family Day"}, {"date": "2027-01-01", "name": "New Year's Day"}, {"date": "2027-02-21", "name": "Father Walter Lini Day"}, {"date": "2027-03-05", "name": "Custom Chiefs' Day"}, {"date": "2027-03-26", "name": "Good Friday"}, {"date": "2027-03-29", "name": "Easter Monday"}, {"date": "2027-05-01", "name": "Labour Day"}, {"date": "2027-05-06", "name": "Ascension Day"}, {"date": "2027-07-24", "name": "Children's Day"}, {"date": "2027-07-30", "name": "Independence Day"}, {"date": "2027-08-15", "name": "Assumption Day"}, {"date": "2027-10-05", "name": "Constitution Day"}, {"date": "2027-11-29", "name": "Unity Day"}, {"date": "2027-12-25", "name": "Christmas Day"}, {"date": "2027-12-26", "name": "Family Day"}], "rosters": [{"month": "2026-11", "rows": {"Mary Ann Tosul": ["OC", "AM", "AM", "AM", "OC", "AM", "OFF", "OFF", "OC", "AM", "AM", "AM", "OC", "OFF", "OFF", "AM", "OC", "AM", "AM", "AM", "OFF", "OFF", "Symposium", "Symposium", "Symposium", "Symposium", "Symposium", "OFF", "OFF", "OFF"], "Robert Tom": ["OFF", "OC", "AM", "AM", "AM", "OC", "OFF", "OFF", "AM", "OC", "AM", "AM", "AM", "OC", "OFF", "AM", "AM", "OC", "AM", "AM", "OFF", "OC", "AM", "AM", "AM", "OC", "AM", "OFF", "OFF", "OC"], "Leiwia Dick": ["OFF", "AM", "OC", "AM", "AM", "AM", "OC", "OFF", "AM", "AM", "OC", "AM", "AM", "OFF", "OC", "AM", "AM", "AM", "OC", "AM", "OFF", "OFF", "OC", "AM", "AM", "AM", "OC", "OFF", "OFF", "AM"], "Escar Avock": ["OFF", "AM", "AM", "OC", "AM", "AM", "OFF", "OC", "AM", "AM", "AM", "OC", "AM", "OFF", "OFF", "OC", "AM", "AM", "AM", "OC", "OFF", "OFF", "AM", "OC", "AM", "AM", "AM", "OC", "OFF", "AM"], "Lucienne Toangw…": ["OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OC", "OFF", "AM", "AM", "OC", "AM", "AM", "OFF", "OC", "AM"], "Susan Philemon": ["OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM"], "Jeffrey Kalomor": ["OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM"], "Justina Gaviga": ["OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM"], "Eddie Mansing": ["OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM"], "Amos Temalang": ["OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "OFF", "AM"], "Anndona Bani": ["OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM"], "Jason Whitford": ["OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "AM", "AM", "OFF", "OFF", "AM", "AM", "OFF", "PM", "PM", "PM", "OFF", "OFF", "AM", "AM", "OFF", "AM", "AM", "AM", "AM", "OFF", "PM", "OFF", "AM"], "Derickson Tari": ["PM", "PM", "AM", "AM", "AM", "OFF", "OFF", "OFF", "AM", "AM", "AM", "AM", "OFF", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM"], "Ray Bulemaru": ["OFF", "OFF", "AM", "AM", "AM", "AM", "PM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "AM", "AM", "PM", "PM", "PM", "OFF", "OFF", "AM", "AM", "AM", "AM", "OFF", "OFF", "PM", "OFF"], "Abigail Kalontano": ["OFF", "AM", "AM", "AM", "AM", "AM", "AM", "OFF", "AM", "AM", "AM", "OFF", "OFF", "PM", "OFF", "AM", "AM", "OFF", "AM", "AM", "PM", "OFF", "OFF", "AM", "AM", "OFF", "AM", "AM", "OFF", "PM"], "Kalki Sero": ["AM", "AM", "PM", "OFF", "AM", "AM", "OFF", "PM", "PM", "PM", "OFF", "AM", "AM", "OFF", "AM", "OFF", "AM", "AM", "AM", "OFF", "OFF", "PM", "PM", "PM", "OFF", "AM", "AM", "OFF", "OFF", "AM"], "Samuel Bakon": ["VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "VACATION", "OFF", "OFF", "AM", "PM", "PM", "PM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "AM", "AM", "OFF", "PM", "PM", "PM", "OFF", "OFF", "AM"], "Raymond Seule": ["OFF", "AM", "AM", "OFF", "AM", "AM", "AM", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "AM", "AM", "OFF", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "OFF", "AM", "AM", "OFF", "AM", "AM"], "Shirley Iercet": ["OFF", "AM", "AM", "PM", "PM", "PM", "OFF", "OFF", "AM", "AM", "AM", "OFF", "AM", "AM", "OFF", "AM", "AM", "AM", "OFF", "OFF", "AM", "OFF", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM"], "Rina Morrison": ["AM", "AM", "AM", "AM", "AM", "AM", "OFF", "AM", "AM", "OFF", "OFF", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "AM", "OFF", "AM", "AM", "OFF", "AM", "AM", "OFF", "AM"], "Evaneth Banga": ["OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "RP", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM"], "Devlyn Ala": ["OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "RP", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM"]}, "groups": {}, "status": "published", "source": "imported-original", "minAM": null, "note": "Original paper roster (before new rules) — reference only"}, {"month": "2026-12", "rows": {"Mary Ann Tosul": ["AM", "AM/OC", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "OFF", "AM", "OFF", "AM/OC", "AM", "AM", "AM", "AM", "HO", "HO", "OFF", "AM", "AM", "AM/OC", "AM"], "Robert Tom": ["AM", "AM", "AM", "AM/OC", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM/OC", "OFF", "AM", "AM", "AM", "AM/OC", "OFF", "AM", "AM", "AM", "AM", "HO", "HO", "OFF", "AM", "AM", "AM", "AM"], "Leiwia Dick": ["LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV"], "Escar Avock": ["AM/OC", "AM", "OFF", "AM", "AM/OC", "OFF", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV"], "Lucienne Toangw…": ["AM", "AM", "AM", "OFF", "OFF", "OFF", "OFF", "OFF", "AM", "PM", "PM", "PM", "OFF", "OFF", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "PM", "PM", "PM", "HO", "OFF", "AM", "AM", "AM", "AM"], "Susan Philemon": ["AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "OFF", "AM", "AM", "AM/OC", "OFF", "AM", "AM", "AM", "AM", "AM/OC", "OFF", "OFF", "AM", "AM/OC", "AM", "AM", "HO", "HO", "OFF", "AM", "AM", "AM", "AM"], "Jeffrey Kalomor": ["AM", "AM", "AM/OC", "OFF", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM/OC", "HO", "OFF", "AM", "AM", "AM", "AM/OC"], "Justina Gaviga": ["AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "OFF", "AM", "AM", "AM", "OFF", "AM/OC", "AM", "AM", "AM", "AM/OC", "OFF", "AM", "OFF", "AM", "AM", "AM", "AM", "HO", "HO", "OFF", "AM", "AM", "AM", "AM"], "Eddie Mansing": ["AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "OFF", "AM", "AM/OC", "AM", "AM", "OFF", "AM", "AM", "AM", "AM", "AM/OC", "HO", "HO", "AM/OC", "AM", "AM", "AM", "OFF"], "Amos Temalang": ["AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM/OC", "AM", "AM", "AM/OC", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "HO", "HO", "OFF", "AM", "AM", "AM", "AM"], "Anndona Bani": ["AM", "AM", "OFF", "AM", "OFF", "AM", "AM", "AM", "AM", "OFF", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM/OC", "AM", "HO", "AM", "OFF", "AM/OC", "AM", "AM", "AM"], "Jason Whitford": ["PM", "PM", "PM", "OFF", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "OFF", "AM", "AM", "OFF", "PM", "PM", "PM", "OFF", "OFF", "HO", "HO", "AM", "AM", "AM", "AM", "AM"], "Derickson Tari": ["AM", "OFF", "OFF", "PM", "PM", "PM", "OFF", "OFF", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "HO", "HO", "OFF", "AM", "PM", "PM", "PM"], "Ray Bulemaru": ["OFF", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM/OC", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "HO", "AM/OC", "OFF", "AM", "AM", "AM", "AM"], "Abigail Kalontano": ["OFF", "OFF", "AM", "AM", "OFF", "OFF", "PM", "PM", "PM", "OFF", "OFF", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "OFF", "AM", "AM", "HO", "PM", "PM", "PM", "OFF", "OFF", "AM"], "Kalki Sero": ["AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "OFF", "AM", "AM", "OFF", "PM", "PM", "OFF", "OFF", "AM", "PM", "PM", "OFF", "OFF", "AM", "AM", "AM", "HO", "HO", "OFF", "AM", "AM", "AM", "AM"], "Samuel Bakon": ["AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM/OC", "AM", "AM", "AM", "HO", "HO", "OFF", "AM", "AM/OC", "AM", "AM"], "Raymond Seule": ["OFF", "AM", "AM", "AM", "OFF", "AM/OC", "AM", "AM", "AM/OC", "AM", "OFF", "OFF", "AM", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV"], "Shirley Iercet": ["OFF", "OFF", "AM", "AM", "AM", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "PM", "PM", "PM", "OFF", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "HO", "OFF", "AM", "AM", "AM", "AM"], "Rina Morrison": ["AM", "AM", "AM", "AM", "OFF", "OFF", "AM/OC", "AM", "OFF", "AM/OC", "AM", "AM", "OFF", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV", "LV"], "Evaneth Banga": ["AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "HO", "HO", "OFF", "AM", "AM", "AM", "AM"], "Devlyn Ala": ["AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "HO", "HO", "OFF", "AM", "AM", "AM", "AM"]}, "groups": {"Mary Ann Tosul": "OC", "Robert Tom": "OC", "Leiwia Dick": "LV", "Escar Avock": "OC", "Lucienne Toangw…": "PM", "Susan Philemon": "OC", "Jeffrey Kalomor": "OC", "Justina Gaviga": "OC", "Eddie Mansing": "OC", "Amos Temalang": "OC", "Anndona Bani": "OC", "Jason Whitford": "PM", "Derickson Tari": "PM", "Ray Bulemaru": "OC", "Abigail Kalontano": "PM", "Kalki Sero": "PM", "Samuel Bakon": "OC", "Raymond Seule": "OC", "Shirley Iercet": "PM", "Rina Morrison": "OC", "Evaneth Banga": "AM", "Devlyn Ala": "AM"}, "status": "draft", "source": "auto", "minAM": 15, "note": "Re-built for the Employment Act and weekend AM pairing (groups kept from Excel v9)", "groupWhy": {"Mary Ann Tosul": "Allocated manually", "Robert Tom": "Allocated manually", "Leiwia Dick": "On leave all month", "Escar Avock": "Allocated manually", "Lucienne Toangw…": "Allocated manually", "Susan Philemon": "Allocated manually", "Jeffrey Kalomor": "Allocated manually", "Justina Gaviga": "Allocated manually", "Eddie Mansing": "Allocated manually", "Amos Temalang": "Allocated manually", "Anndona Bani": "Allocated manually", "Jason Whitford": "Allocated manually", "Derickson Tari": "Allocated manually", "Ray Bulemaru": "Allocated manually", "Abigail Kalontano": "Allocated manually", "Kalki Sero": "Allocated manually", "Samuel Bakon": "Allocated manually", "Raymond Seule": "Allocated manually", "Shirley Iercet": "Allocated manually", "Rina Morrison": "Allocated manually", "Evaneth Banga": "AM-only staff", "Devlyn Ala": "AM-only staff"}, "pins": {}}, {"month": "2027-01", "rows": {"Mary Ann Tosul": ["HO", "OFF", "OFF", "OFF", "AM", "AM", "AM", "PM", "PM", "OFF", "OFF", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF"], "Robert Tom": ["HO", "OFF", "PM", "PM", "PM", "OFF", "OFF", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF"], "Leiwia Dick": ["AM/OC", "OFF", "OFF", "AM/OC", "OFF", "AM", "AM/OC", "AM", "OFF", "AM/OC", "AM", "AM", "AM", "AM", "OFF", "OFF", "OFF", "AM", "AM", "AM/OC", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF"], "Escar Avock": ["HO", "OFF", "OFF", "AM", "AM", "PM", "PM", "OFF", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF"], "Lucienne Toangw…": ["HO", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM/OC", "OFF", "OFF", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM/OC", "AM", "AM", "AM", "AM/OC", "OFF", "OFF", "AM/OC"], "Susan Philemon": ["HO", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "OFF", "PM", "PM", "OFF", "OFF", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF"], "Jeffrey Kalomor": ["HO", "OFF", "AM", "AM", "AM", "AM", "OFF", "AM", "OFF", "PM", "PM", "OFF", "OFF", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF"], "Justina Gaviga": ["AM", "OFF", "OFF", "AM", "OFF", "AM", "AM", "AM", "AM", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "OFF", "AM", "AM", "AM", "OFF", "AM", "PM", "PM", "PM", "OFF", "OFF", "OFF", "OFF"], "Eddie Mansing": ["HO", "AM", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "AM", "OFF", "OFF", "OFF", "AM", "AM", "AM", "PM", "PM", "OFF", "OFF"], "Amos Temalang": ["HO", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "PM", "PM", "PM", "OFF", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF"], "Anndona Bani": ["HO", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "OFF", "OFF", "AM", "AM", "AM", "PM", "PM", "OFF", "OFF", "AM", "AM", "AM", "OFF", "AM"], "Jason Whitford": ["HO", "OFF", "OFF", "AM", "AM", "AM/OC", "AM", "AM", "OFF", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM/OC", "OFF", "AM", "AM", "AM", "AM/OC", "AM", "OFF", "OFF", "AM/OC", "AM", "AM", "AM", "AM", "OFF", "OFF"], "Derickson Tari": ["HO", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM/OC", "OFF", "OFF", "AM", "AM/OC", "AM", "OFF", "AM", "OFF", "AM/OC", "AM", "AM", "OFF", "AM", "AM", "AM/OC", "OFF", "AM", "AM", "AM/OC", "AM", "AM", "OFF", "OFF"], "Ray Bulemaru": ["HO", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "OFF", "AM", "AM", "AM", "OFF", "PM", "PM", "PM", "OFF", "OFF", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF"], "Abigail Kalontano": ["HO", "OFF", "OFF", "AM", "AM", "OFF", "AM", "AM", "AM/OC", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM/OC", "AM", "AM", "AM/OC", "OFF", "OFF", "AM", "AM", "OFF", "AM", "AM", "AM/OC", "OFF"], "Kalki Sero": ["HO", "AM/OC", "OFF", "AM", "AM/OC", "AM", "AM", "OFF", "OFF", "OFF", "AM", "AM", "AM/OC", "AM", "AM", "OFF", "OFF", "AM/OC", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM/OC", "OFF", "OFF"], "Samuel Bakon": ["HO", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "PM", "PM", "PM", "OFF", "OFF", "OFF", "AM", "AM", "AM", "AM", "OFF", "OFF"], "Raymond Seule": ["PM", "PM", "OFF", "OFF", "OFF", "OFF", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF"], "Shirley Iercet": ["HO", "OFF", "AM/OC", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM/OC", "OFF", "AM", "AM/OC", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM/OC", "AM", "AM", "OFF", "AM", "OFF"], "Rina Morrison": ["HO", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "OFF", "OFF", "AM", "AM", "PM", "PM"], "Evaneth Banga": ["HO", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF"], "Devlyn Ala": ["HO", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF", "AM", "AM", "AM", "AM", "AM", "OFF", "OFF"]}, "groups": {"Mary Ann Tosul": "PM", "Robert Tom": "PM", "Escar Avock": "PM", "Lucienne Toangw…": "OC", "Susan Philemon": "PM", "Jeffrey Kalomor": "PM", "Justina Gaviga": "PM", "Eddie Mansing": "PM", "Amos Temalang": "PM", "Anndona Bani": "PM", "Jason Whitford": "OC", "Derickson Tari": "OC", "Ray Bulemaru": "PM", "Abigail Kalontano": "OC", "Kalki Sero": "OC", "Samuel Bakon": "PM", "Raymond Seule": "PM", "Shirley Iercet": "OC", "Rina Morrison": "PM", "Evaneth Banga": "AM", "Devlyn Ala": "AM", "Leiwia Dick": "OC"}, "status": "draft", "source": "auto", "minAM": 17, "note": "Re-built for the Employment Act and weekend AM pairing (groups kept from Excel v9)", "groupWhy": {"Mary Ann Tosul": "Rotation: on-call last month → PM", "Robert Tom": "Rotation: on-call last month → PM", "Escar Avock": "Rotation: on-call last month → PM", "Lucienne Toangw…": "Rotation: PM last month → on-call", "Susan Philemon": "Rotation: on-call last month → PM", "Jeffrey Kalomor": "Rotation: on-call last month → PM", "Justina Gaviga": "Rotation: on-call last month → PM", "Eddie Mansing": "Rotation: on-call last month → PM", "Amos Temalang": "Rotation: on-call last month → PM", "Anndona Bani": "Rotation: on-call last month → PM", "Jason Whitford": "Rotation: PM last month → on-call", "Derickson Tari": "Rotation: PM last month → on-call", "Ray Bulemaru": "Rotation: on-call last month → PM", "Abigail Kalontano": "Rotation: PM last month → on-call", "Kalki Sero": "Rotation: PM last month → on-call", "Samuel Bakon": "Rotation: on-call last month → PM", "Raymond Seule": "Rotation: on-call last month → PM", "Shirley Iercet": "Rotation: PM last month → on-call", "Rina Morrison": "Rotation: on-call last month → PM", "Evaneth Banga": "AM-only staff", "Devlyn Ala": "AM-only staff", "Leiwia Dick": "Balanced (no group last month)"}, "pins": {}}], "roles": [{"key": "2026-12|Mary Ann Tosul", "role": "OC"}, {"key": "2026-12|Robert Tom", "role": "OC"}, {"key": "2026-12|Escar Avock", "role": "OC"}, {"key": "2026-12|Lucienne Toangw…", "role": "PM"}, {"key": "2026-12|Susan Philemon", "role": "OC"}, {"key": "2026-12|Jeffrey Kalomor", "role": "OC"}, {"key": "2026-12|Justina Gaviga", "role": "OC"}, {"key": "2026-12|Eddie Mansing", "role": "OC"}, {"key": "2026-12|Amos Temalang", "role": "OC"}, {"key": "2026-12|Anndona Bani", "role": "OC"}, {"key": "2026-12|Jason Whitford", "role": "PM"}, {"key": "2026-12|Derickson Tari", "role": "PM"}, {"key": "2026-12|Ray Bulemaru", "role": "OC"}, {"key": "2026-12|Abigail Kalontano", "role": "PM"}, {"key": "2026-12|Kalki Sero", "role": "PM"}, {"key": "2026-12|Samuel Bakon", "role": "OC"}, {"key": "2026-12|Raymond Seule", "role": "OC"}, {"key": "2026-12|Shirley Iercet", "role": "PM"}, {"key": "2026-12|Rina Morrison", "role": "OC"}]}</script>
+<script id="engine">
+"use strict";
+/* ===== ENGINE: pure roster logic. Runs on the page AND inside background workers ===== */
+/* ===================== CONSTANTS ===================== */
+const DB_NAME="vnhLabRosterDB", DB_VER=1, TARGET_BYTES=40*1024**3;
+const DEFAULTS={minAM:17,weekendAM:2,maxRun:5,pmPattern:"mixed",restMixed:2,rest2:2,rest3:3,pmExtraOff:1,pmBlockMin:2,pmBlockMax:3,ocSpacing:3,autoDay:20,attempts:250,relaxSteps:4,
+  /* Labour-law compliance — Employment Act [Cap 160] & Public Service Staff Manual (PSSM) */
+  rulesVer:6,otGap:8,legalOn:1,hoursAM:8,hoursPM:8,hoursOC:0,maxWeekHours:44,maxWeekDays:6,maxDayHours:8,pssmWeekHours:40,annualLeaveDays:12};
+const DEFAULT_WEEKEND_LEADS=["Eddie Mansing","Justina Gaviga","Anndona Bani","Shirley Iercet","Rina Morrison"];   /* one of these is on AM every Saturday, Sunday and public holiday */
+const isLead=n=>{const st=S.staff.find(x=>x.name===n);return !!(st&&st.weekendLead)};
+const PATTERN_LABEL={mixed:"Mixed: 2 or 3 consecutive PM",2:"2 consecutive PM days",3:"3 consecutive PM days"};
+/* days off that must follow a PM block of length L */
+const restFor=L=>{const s=S.settings;return s.pmPattern==="mixed"?s.restMixed:(L>=3?s.rest3:s.rest2)};
+const GROUP_LABEL={PM:"PM Shifts",OC:"AM + on-call",AM:"AM only",LV:"Leave (full month)"};
+const CODES=["AM","PM","AM/OC","OFF","HO","LV"];
+const pad=n=>String(n).padStart(2,"0");
+const ym=(y,m)=>`${y}-${pad(m)}`;
+const parseYM=k=>{const [y,m]=k.split("-").map(Number);return {y,m}};
+const addMonth=(k,n)=>{let {y,m}=parseYM(k);m+=n;while(m>12){m-=12;y++}while(m<1){m+=12;y--}return ym(y,m)};
+const daysIn=(y,m)=>new Date(y,m,0).getDate();
+const dateStr=(y,m,d)=>`${y}-${pad(m)}-${pad(d)}`;
+const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DOW=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const monthLabel=k=>{const {y,m}=parseYM(k);return `${["January","February","March","April","May","June","July","August","September","October","November","December"][m-1]} ${y}`};
+const isOff=c=>c==="OFF"||c==="HO";
+const isRest=c=>isOff(c)||c==="LV"||c==null||c==="";
+const isWork=c=>["AM","PM","AM/OC","OC","RP","N"].includes(c);
+const isOC=c=>c==="AM/OC"||c==="OC";
+const isAM=c=>c==="AM"||c==="AM/OC";
+
+const S={settings:{...DEFAULTS},staff:[],leave:[],holidays:[],rosters:{},roles:{},view:{month:null,tab:"roster"}};
+/* ===================== CONTEXT ===================== */
+function holidaySet(){return new Set(S.holidays.map(h=>h.date))}
+function leaveDays(name,y,m){const D=daysIn(y,m),set=new Set();
+  for(const l of S.leave){if(l.name!==name)continue;
+    for(let d=1;d<=D;d++){const ds=dateStr(y,m,d);if(ds>=l.from&&ds<=l.to)set.add(d-1);}}
+  return set;}
+function activeStaff(){return S.staff.filter(s=>s.active!==false)}
+function prevInfo(name,key){
+  const pr=S.rosters[addMonth(key,-1)];const arr=pr&&pr.rows[name];
+  const info={run:0,owe:0,ocAgo:[],lastPM:false};
+  if(!arr)return info;
+  const n=arr.length;for(let i=n-1;i>=0&&isWork(arr[i]);i--)info.run++;
+  {let i=n-1;while(i>=0&&isRest(arr[i])&&arr[i]!=null)i--;            // last non-rest day
+   if(i>=0&&arr[i]==="PM"){let L=0;for(let j=i;j>=0&&arr[j]==="PM";j--)L++;info.owe=Math.max(0,restFor(L)-(n-1-i))}}
+  for(let k=0;k<S.settings.ocSpacing;k++)if(isOC(arr[n-1-k]))info.ocAgo.push(k);   // k=0 -> last day of prev month
+  info.lastPM=arr[n-1]==="PM";
+  return info;}
+
+/* Group allocation: manual role > AM-only > full-month leave > rotation (PM<->OC) > balance */
+/* ===== Strict monthly alternation =====
+   An officer on AM (with on-call) this month MUST be on PM next month, and an officer on PM this month MUST be on AM next month.
+   Leave-only months are skipped (the officer alternates from the last month they worked). AM-only staff are exempt until eligible. */
+function isAmOnly(st,key){return !!(st&&st.amOnly&&(!st.amOnlyUntil||key<st.amOnlyUntil))}
+function lastGroup(n,key){for(let k=1;k<=12;k++){const r=S.rosters[addMonth(key,-k)];if(!r)return null;const g=r.groups&&r.groups[n];
+    if(g==="PM"||g==="OC"||g==="AM")return g;if(g==="LV")continue;return null}return null}
+const isAMside=g=>g==="OC"||g==="AM";            // AM + on-call, or AM only: both are an "AM month"
+/* the group an officer MUST be in this month: AM last month -> PM; PM last month -> AM (with on-call) */
+const mustBe=(n,key)=>{const lg=lastGroup(n,key);return lg==="PM"?"OC":isAMside(lg)?"PM":null};
+/* true when a group would repeat last month's side (AM-only staff are exempt until eligible) */
+function repeatsSide(n,g,key){const st=S.staff.find(x=>x.name===n);if(isAmOnly(st,key))return false;const lg=lastGroup(n,key);
+  return (g==="PM"&&lg==="PM")||(isAMside(g)&&isAMside(lg))}
+function altBreaches(R){if(!R||R.source==="imported-original")return [];return Object.keys(R.groups||{}).filter(n=>S.staff.some(x=>x.name===n&&x.active!==false)&&repeatsSide(n,R.groups[n],R.month))}
+function determineGroups(key){
+  const {y,m}=parseYM(key),D=daysIn(y,m);
+  const g={},why={},free=[];
+  for(const s of activeStaff()){const n=s.name,forced=mustBe(n,key),r=S.roles[key+"|"+n];
+    if(isAmOnly(s,key)){g[n]="AM";why[n]=s.amOnlyUntil?`AM only until ${monthLabel(s.amOnlyUntil)}`:"AM-only staff";continue}
+    if(leaveDays(n,y,m).size>=D){g[n]="LV";why[n]="On leave all month";continue}
+    if(r&&r!=="AUTO"&&r!=="AM"&&(!forced||r===forced)){g[n]=r;why[n]="Allocated manually";continue}
+    if(r==="AM"&&forced!=="PM"){g[n]="AM";why[n]="Allocated manually (AM only this month)";continue}
+    if(forced){g[n]=forced;why[n]=forced==="PM"?"Rotation: AM last month → PM this month":"Rotation: PM last month → AM + on-call this month";
+      if(r&&r!=="AUTO"&&r!==forced)why[n]+=" (manual role ignored: same group two months running is not allowed)";continue}
+    free.push(n);
+  }
+  // staff with no group to alternate from (new, back from AM-only, first month) balance the two groups
+  const avail=n=>D-leaveDays(n,y,m).size;
+  free.sort((a,b)=>avail(b)-avail(a));
+  for(const n of free){const load=grp=>Object.keys(g).filter(k=>g[k]===grp).reduce((t,k)=>t+avail(k),0);
+    g[n]=load("PM")<=load("OC")?"PM":"OC";why[n]="Balanced (no group to alternate from)"}
+  return {g,why};
+}
+function buildCtx(key,groups){
+  const {y,m}=parseYM(key),D=daysIn(y,m),hs=holidaySet();
+  const names=activeStaff().map(s=>s.name);
+  const spec=[],hol=[];for(let d=1;d<=D;d++){const w=new Date(y,m-1,d).getDay();const h=hs.has(dateStr(y,m,d));hol.push(h);spec.push(w===0||w===6||h)}
+  const lv={},prev={};names.forEach(n=>{lv[n]=leaveDays(n,y,m);prev[n]=prevInfo(n,key)});
+  const pr=S.rosters[addMonth(key,-1)];const prevRows={};names.forEach(n=>prevRows[n]=(pr&&pr.rows[n])||[]);
+  const sun=[];for(let d=1;d<=D;d++)sun.push(new Date(y,m-1,d).getDay()===0||hol[d-1]);
+  const wd=[];for(let d=1;d<=D;d++)wd.push((new Date(y,m-1,d).getDay()+6)%7);   // Mon=0 … Sun=6
+  return {key,y,m,D,names,grp:groups,lv,prev,spec,hol,sun,wd,prevRows,set:S.settings};
+}
+/* Act s.22 hand-over: staff must have spare days in the last part-week so next month's first weekend can be covered legally */
+function trailShort(ctx,rows){const set=S.settings;if(!set.legalOn)return 0;const {D,wd,names}=ctx;
+  let start=D;for(let d=D-1;d>=0&&wd[d]!==6;d--)start=d;if(start>=D)return 0;          // month ends on Sunday → nothing carries
+  const nextDays=7-(D-start);const capDays=Math.min(set.maxWeekDays,Math.floor(wkCapH(set)/Math.max(1,set.hoursAM)));
+  const need=Math.min(nextDays,2)*(set.weekendAM+1)+2;let have=0;
+  let pmReady=0;const pmNeed=Math.min(nextDays,2);
+  for(const n of names){if(ctx.grp[n]==="LV")continue;let w=0;for(let d=start;d<D;d++)if(isWork(rows[n][d]))w++;const spare=Math.max(0,capDays-w);have+=Math.min(nextDays,spare);
+    if(ctx.grp[n]==="OC"&&spare>=pmNeed&&rows[n][D-1]!=="PM")pmReady++}           // next month's PM group must be able to start a block
+  const leadReady=S.staff.some(x=>x.weekendLead)?names.filter(n=>isLead(n)&&ctx.grp[n]!=="LV"&&rows[n][D-1]!=="PM"&&capDays-rows[n].slice(start).filter(isWork).length>=1).length:2;
+  return Math.max(0,need-have)+Math.max(0,3-pmReady)*2+Math.max(0,2-leadReady)*2}
+/* hours credited for a duty code (Act s.22: hours exclude meal & tea breaks) */
+function hrs(c){const s=S.settings;if(c==="AM"||c==="RP")return s.hoursAM;if(c==="PM")return s.hoursPM;if(c==="AM/OC")return s.hoursAM+s.hoursOC;if(c==="OC")return s.hoursOC;if(c==="N")return 8;return 0}
+/* Mon–Sun weeks whose Sunday falls in this month (first week borrows days from last month) */
+function weeksOf(ctx,row,n){const out=[];const pr=ctx.prevRows[n]||[];
+  for(let d=0;d<ctx.D;d++){if(ctx.wd[d]!==6)continue;const days=[];
+    for(let k=6;k>=0;k--){const i=d-k;if(i>=0)days.push({i,c:row[i]});else{const j=pr.length+i;days.push({i,c:j>=0?pr[j]:undefined,prev:true})}}
+    out.push({end:d,days})}
+  return out}
+/* ===== 40-hour working week =====
+   General rule: an officer works 40 hours a week (Mon–Sun). The roster is never built above it; weeks below it are kept to a minimum.
+   Paid leave and public holidays on a Monday–Friday count as a normal day towards the 40 hours. */
+const stdWk=()=>S.settings.pssmWeekHours||40;
+const wkCapH=set=>Math.min(set.maxWeekHours,set.pssmWeekHours||40);
+function weekCred(w){let h=0,paid=0;w.days.forEach((x,j)=>{if(isWork(x.c))h+=hrs(x.c);else if(j<5&&(x.c==="LV"||x.c==="HO"))paid+=S.settings.hoursAM});return Math.max(h,Math.min(stdWk(),h+paid))}   // paid leave/holidays top a week up to the standard, never past it
+function weekLoad(w){let h=0,dw=0,rest=0;for(const x of w.days){if(isWork(x.c)){h+=hrs(x.c);dw++}else if(x.c!==undefined)rest++}return {h,dw,rest,known:w.days.every(x=>x.c!==undefined)}}
+
+/* ===================== VALIDATION ===================== */
+function validate(ctx,rows,minAM){
+  const {D,names,grp,spec,prev,set}=ctx;const per={},issues=[],flags={};let short40=0;
+  const flag=(n,d)=>{(flags[n]=flags[n]||{})[d]=true};
+  const day={am:[],pm:[],oc:[]};
+  for(let d=0;d<D;d++){let a=0,p=0,o=0;for(const n of names){const c=rows[n][d];if(isAM(c))a++;if(c==="PM")p++;if(isOC(c))o++}day.am.push(a);day.pm.push(p);day.oc.push(o);
+    if(p!==1)issues.push({sev:3,msg:`${d+1}: PM cover is ${p} (need 1)`});
+    if(o!==1)issues.push({sev:3,msg:`${d+1}: on-call cover is ${o} (need 1)`});
+    if(spec[d]&&a!==set.weekendAM)issues.push({sev:2,msg:`${d+1}: weekend/holiday AM is ${a} (need ${set.weekendAM})`});
+    if(spec[d]&&S.staff.some(x=>x.weekendLead)){const amN=names.filter(n=>isAM(rows[n][d])),ld=amN.filter(isLead).length;
+      if(ld!==1){issues.push({sev:2,msg:`${d+1}: weekend/holiday AM needs exactly one weekend lead (${S.staff.filter(x=>x.weekendLead).map(x=>x.name.split(" ")[0]).join(", ")}) with one other officer; now ${ld}`});amN.forEach(n=>flag(n,d))}}
+    if(!spec[d]&&a<minAM)issues.push({sev:2,msg:`${d+1}: weekday AM is ${a} (minimum ${minAM})`});}
+  for(const n of names){const r=rows[n],g=grp[n];let off=0,am=0,pm=0,oc=0,wk=0,lvn=0,blocks=0,specLv=0;
+    for(let d=0;d<D;d++){const c=r[d];if(isOff(c))off++;if(isAM(c))am++;if(c==="PM")pm++;if(isOC(c))oc++;if(c==="LV"){lvn++;if(spec[d])specLv++}
+      if(spec[d]&&isWork(c))wk++;
+      if(c==="PM"&&(d===D-1||r[d+1]!=="PM"))blocks++;}
+    const specCount=spec.filter(Boolean).length;
+    const ent=specCount-specLv+blocks*set.pmExtraOff;
+    const p={off,am,pm,oc,wk,lv:lvn,ent,diff:off-ent,blocks,breach:0,rest:0,run:0,space:0};
+    // group
+    for(let d=0;d<D;d++){const c=r[d];
+      if((g==="PM"&&isOC(c))||(g==="OC"&&c==="PM")||(g==="AM"&&(c==="PM"||isOC(c)))||(g==="LV"&&isWork(c))||c==="OFF/OC"||c==="HO/OC"||c==="N"){p.breach++;flag(n,d)}}
+    // rest after PM block (incl. carry-over)
+    for(let d=0;d<D;d++){if(r[d]==="PM"&&r[d+1]!=="PM"&&d+1<D){let L=0;for(let j=d;j>=0&&r[j]==="PM";j--)L++;for(let t=1;t<=restFor(L)&&d+t<D;t++)if(!isRest(r[d+t])){p.rest++;flag(n,d+t)}}}
+    for(let d=0;d<prev[n].owe&&d<D;d++)if(!isRest(r[d])){p.rest++;flag(n,d)}
+    // PM block length
+    for(let d=0;d<D;d++){if(r[d]==="PM"&&(d===0||r[d-1]!=="PM")){let L=0;while(d+L<D&&r[d+L]==="PM")L++;if(L>set.pmBlockMax){p.rest++;flag(n,d)}}}
+    // max run
+    let run=prev[n].run;for(let d=0;d<D;d++){if(isWork(r[d])){run++;if(run>set.maxRun){p.run++;flag(n,d)}}else run=0}
+    // on-call spacing
+    for(let d=0;d<D;d++){if(!isOC(r[d]))continue;for(let t=1;t<set.ocSpacing;t++)if(d+t<D&&isOC(r[d+t])){p.space++;flag(n,d+t)}
+      for(const k of prev[n].ocAgo)if(d+1+k<set.ocSpacing){p.space++;flag(n,d)}}
+    // ===== Labour law (Employment Act Cap 160 / PSSM) =====
+    // ===== 40-hour working week =====
+    {const std=stdWk();p.wkN=0;p.wk40=0;p.wkLow=0;p.minWk=null;p.sumWk=0;p.over40=0;
+     for(const w of weeksOf(ctx,r,n)){const L=weekLoad(w);if(!L.known)continue;const cred=weekCred(w);p.wkN++;p.sumWk+=cred;p.minWk=p.minWk===null?cred:Math.min(p.minWk,cred);
+       if(L.h>std){p.over40++;if(!set.legalOn||L.h<=set.maxWeekHours){w.days.filter(x=>!x.prev&&isWork(x.c)).forEach(x=>flag(n,x.i));
+         issues.push({sev:2,msg:`${n}: week ending ${w.end+1} — ${L.h} h worked (40-hour week rule: max ${std} h)`})}}
+       if(cred>=std)p.wk40++;else{p.wkLow++;short40+=((std-cred)/Math.max(1,set.hoursAM))**2}}}
+    // ===== overtime-claim hours (estimate): Sunday/public-holiday hours + PM hours after 20:00 + hours above the working week =====
+    {p.phH=0;p.nightH=0;p.over40H=0;for(let d=0;d<D;d++){const c=r[d];if(isWork(c)&&ctx.sun[d])p.phH+=hrs(c);if(c==="PM")p.nightH+=3}
+     for(const w of weeksOf(ctx,r,n)){const L=weekLoad(w);p.over40H+=Math.max(0,L.h-stdWk())}
+     p.claimH=p.phH+p.nightH+p.over40H;p.claimGap=null}
+    p.maxWkH=0;p.maxWkD=0;p.sunPH=0;p.unsocial=0;p.otH=0;p.legal=0;
+    if(set.legalOn){
+      for(const w of weeksOf(ctx,r,n)){const L=weekLoad(w);p.maxWkH=Math.max(p.maxWkH,L.h);p.maxWkD=Math.max(p.maxWkD,L.dw);p.otH+=Math.max(0,L.h-set.pssmWeekHours);
+        if(L.h>set.maxWeekHours||L.dw>set.maxWeekDays){p.legal++;w.days.filter(x=>!x.prev&&isWork(x.c)).forEach(x=>flag(n,x.i));
+          issues.push({sev:3,law:1,msg:`${n}: week ending ${w.end+1} — ${L.dw} days / ${L.h} h (Employment Act s.22(1): max ${set.maxWeekDays} days, ${set.maxWeekHours} h)`})}
+        if(L.known&&L.rest===0){p.legal++;issues.push({sev:3,law:1,msg:`${n}: no 24-hour weekly rest in week ending ${w.end+1} (Employment Act s.25)`})}}
+      for(let d=0;d<D;d++){const c=r[d];if(hrs(c)>set.maxDayHours){p.legal++;flag(n,d);issues.push({sev:3,law:1,msg:`${n}: ${hrs(c)} h on day ${d+1} (Employment Act s.22(1): max ${set.maxDayHours} h/day)`})}
+        if(isWork(c)&&ctx.sun[d])p.sunPH++;if(c==="PM")p.unsocial+=3;}
+      if(p.sunPH>0&&p.diff<0){p.legal++;issues.push({sev:3,law:1,msg:`${n}: worked ${p.sunPH} Sunday/public-holiday day(s) without equivalent time off (Employment Act s.23(3))`})}}
+    if(p.breach)issues.push({sev:3,msg:`${n}: ${p.breach} duty(ies) outside their group (${GROUP_LABEL[g]||g})`});
+    if(repeatsSide(n,g,ctx.key)){p.breach++;issues.push({sev:3,msg:`${n}: ${g==="PM"?"PM":"AM"} two months running. Must alternate: AM one month, PM the next`})}
+    if(p.rest)issues.push({sev:3,msg:`${n}: ${p.rest} rest breach(es) after PM`});
+    if(p.run)issues.push({sev:2,msg:`${n}: worked more than ${set.maxRun} days in a row`});
+    if(p.space)issues.push({sev:2,msg:`${n}: on-calls closer than ${set.ocSpacing} days apart`});
+    if(p.diff<0)issues.push({sev:1,msg:`${n}: days off ${off} vs entitled ${ent} (${p.diff}) — owed days off`});
+    if(p.diff>0)issues.push({sev:0,msg:`${n}: ${p.diff} extra day(s) off (${off} vs ${ent}) — given to keep weekly hours within the Employment Act`});
+    per[n]=p;}
+  // fairness
+  const spread=(grpName,key)=>{const v=names.filter(n=>grp[n]===grpName&&ctx.lv[n].size<D/2).map(n=>per[n][key]);return v.length?Math.max(...v)-Math.min(...v):0};
+  const wkSpread=f=>{const v=names.filter(n=>ctx.lv[n].size===0&&f(n)).map(n=>per[n].wk);return v.length?Math.max(...v)-Math.min(...v):0};
+  const fair={pm:spread("PM","pm"),oc:spread("OC","oc"),wk:Math.max(wkSpread(isLead),wkSpread(n=>!isLead(n)))};   // weekend leads compared among themselves
+  /* ===== no unnecessary overtime claims by a single officer =====
+     Officers doing the same job this month (same group; weekend leads together) are peers. Nobody should build up more
+     overtime-claim hours than their peers: the generator shares them out, and anyone more than otGap hours above the peer average is reported. */
+  let otEx=0;fair.ot=0;{const peers={};for(const n of names){if(grp[n]==="LV"||ctx.lv[n].size>=D/2)continue;const k=grp[n]+(isLead(n)?"|lead":"");(peers[k]=peers[k]||[]).push(n)}
+    for(const k in peers){const ns=peers[k];if(ns.length<2)continue;const avg=ns.reduce((t,n)=>t+per[n].claimH,0)/ns.length;
+      for(const n of ns){const gp=per[n].claimH-avg;per[n].claimGap=gp;if(gp>0)otEx+=(gp/Math.max(1,set.hoursAM))**2;fair.ot=Math.max(fair.ot,gp);
+        if(gp>(set.otGap??8))issues.push({sev:1,ot:1,msg:`${n}: ${per[n].claimH} overtime-claim hours — ${Math.round(gp)} h above the average of officers on the same duties (limit +${set.otGap??8} h). Share Sunday/holiday and PM duties more evenly`})}}}
+  let pairs=0;for(const n of names){const r=rows[n];for(let d=0;d+1<D;d++)if(isOff(r[d])&&isOff(r[d+1]))pairs++}
+  // hand-over: next month's PM group (this month's on-call group) should finish with short work runs
+  const tail=n=>{let r=0;for(let d=D-1;d>=0&&isWork(rows[n][d]);d--)r++;return r};
+  const ready=names.filter(n=>grp[n]==="OC"&&tail(n)<=set.maxRun-3).length;
+  const handover=Math.max(0,4-ready)+trailShort(ctx,rows)*2;
+  const score=issues.reduce((t,i)=>t+[15,60,250,1000][i.sev],0)+fair.pm*25+fair.oc*25+fair.wk*10-pairs+handover*120+short40*4+otEx*12;   // otEx: no single officer carries the overtime   // short40: keeps every week as close to 40 h as the rest rules allow
+  return {per,day,issues,flags,fair,pairs,score};
+}
+
+/* ===================== GENERATOR ===================== */
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function shuffle(a,rng){for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function blockSizes(D,pmPeople,rng){
+  const pat=S.settings.pmPattern;
+  if(D<=1)return [D];
+  if(pat==="2"){const a=[];let r=D;if(r%2){a.push(3);r-=3}while(r>0){a.push(2);r-=2}return shuffle(a,rng)}
+  if(pat==="3"){const a=[];let r=D;const rem=D%3;if(rem===1){a.push(2,2);r-=4}else if(rem===2){a.push(2);r-=2}while(r>0){a.push(3);r-=3}return shuffle(a,rng)}
+  // blocks of 2..3 summing to D; at least one block per PM person where possible
+  let best=null;for(let b=0;b*2<=D;b++){if((D-2*b)%3)continue;const a=(D-2*b)/3;if(!best)best=[a,b];if(a+b>=pmPeople){best=[a,b];break}best=[a,b]}
+  const arr=[];for(let i=0;i<best[0];i++)arr.push(3);for(let i=0;i<best[1];i++)arr.push(2);return shuffle(arr,rng);}
+function attempt(ctx,rng,minAM){
+  const {D,names,grp,lv,prev,spec,set}=ctx;const G={},fixed={};
+  const offCode=d=>ctx.hol[d]?"HO":"OFF";
+  for(const n of names){G[n]=new Array(D).fill(null);fixed[n]=new Set();
+    for(const d of lv[n])G[n][d]="LV";
+    for(let d=0;d<prev[n].owe&&d<D;d++){if(G[n][d]==null)G[n][d]=offCode(d);fixed[n].add(d)}}
+  // manual changes (pins) are fixed points — everything else is re-built around them
+  const pins=ctx.pins||{},pinned={};
+  for(const n of names){pinned[n]=new Set();for(const [d,c] of Object.entries(pins[n]||{})){const i=+d;if(i<D){G[n][i]=c;pinned[n].add(i);if(isOff(c)||c==="LV")fixed[n].add(i)}}}
+  const pmCount={},blocks={},ocCount={},ocWk={},wkShift={};names.forEach(n=>{pmCount[n]=0;blocks[n]=0;ocCount[n]=0;ocWk[n]=0;wkShift[n]=0});
+  for(const n of names){for(let d=0;d<D;d++){const c=G[n][d];if(!pinned[n].has(d))continue;
+      if(c==="PM"){pmCount[n]++;if(spec[d])wkShift[n]++;
+        if(G[n][d+1]!=="PM"){blocks[n]++;let L=0;for(let j=d;j>=0&&G[n][j]==="PM";j--)L++;for(let t=1;t<=restFor(L);t++){const r=d+t;if(r<D&&G[n][r]==null){G[n][r]=offCode(r);fixed[n].add(r)}}}}
+      if(isOC(c)){ocCount[n]++;if(spec[d]){ocWk[n]++;wkShift[n]++}}
+      if(c==="AM"&&spec[d])wkShift[n]++;}}
+  const preRun=(n,s)=>{let r=0;for(let d=s-1;d>=0&&isWork(G[n][d]);d--)r++;if(s-r<=0)r+=prev[n].run;return r};
+  const canPM=(n,s,e,strict=true)=>{for(let d=s;d<=e;d++)if(G[n][d]!=null)return false;
+    for(let t=1;t<=restFor(e-s+1);t++){const d=e+t;if(d<D&&G[n][d]!=null&&!isRest(G[n][d]))return false}
+    if(s>0&&G[n][s-1]==="PM")return false;if(s===0&&prev[n].lastPM)return false;if(strict&&preRun(n,s)+(e-s+1)>set.maxRun)return false;
+    if(strict&&set.legalOn){const old=[];for(let d=s;d<=e;d++){old.push(G[n][d]);G[n][d]="PM"}const ok=!wkBad(n);for(let d=s;d<=e;d++)G[n][d]=old[d-s];if(!ok)return false}
+    return true};
+  let nullIsAM=false;   // before days off are placed, empty cells are not yet work
+  const wkBad=n=>{if(!set.legalOn)return null;for(const w of weeksOf(ctx,G[n].map(c=>c==null?(nullIsAM?"AM":"OFF"):c),n)){const L=weekLoad(w);if(L.h>wkCapH(set)||L.dw>set.maxWeekDays)return w}return null};
+  const weekOKafter=(n,u,code)=>{const old=G[n][u];G[n][u]=code;const ok=!wkBad(n);G[n][u]=old;return ok};
+  // 1) PM blocks
+  const pmPool=names.filter(n=>grp[n]==="PM");
+  const segs=[];{let a=-1;for(let d=0;d<=D;d++){const cov=d<D&&names.some(n=>G[n][d]==="PM");if(d<D&&!cov){if(a<0)a=d}else if(a>=0){segs.push([a,d-a]);a=-1}}}
+  const plan=[];for(const [a,len] of segs){const sz=len===1?[1]:blockSizes(len,Math.max(1,Math.round(pmPool.length*len/D)),rng);let p=a;for(const L of sz){plan.push([p,L]);p+=L}}
+  for(const [s,L] of plan){const e=s+L-1;
+    let c=pmPool.filter(n=>canPM(n,s,e));
+    if(!c.length)c=pmPool.filter(n=>canPM(n,s,e,false));
+    if(!c.length)c=names.filter(n=>grp[n]==="OC"&&canPM(n,s,e));
+    // weekend leads: keep at least 2 leads free on every weekend/holiday a PM block (plus its rest days) would cover
+    const leadCost=n=>{if(!isLead(n))return 0;let cost=0;const R=restFor(L);
+      for(let d=s;d<=Math.min(D-1,e+R);d++){if(!spec[d])continue;const free=names.filter(x=>isLead(x)&&G[x][d]==null).length;cost+=free<=2?400:free<=3?40:8}return cost};
+    if(c.length){const key=n=>blocks[n]*40+pmCount[n]*10+preRun(n,s)*4+leadCost(n)+rng()*6;c.sort((a,b)=>key(a)-key(b));
+      const n=c[0];for(let d=s;d<=e;d++){G[n][d]="PM";pmCount[n]++;if(spec[d])wkShift[n]++}blocks[n]++;
+      for(let t=1;t<=restFor(L);t++){const d=e+t;if(d<D){if(G[n][d]==null)G[n][d]=offCode(d);fixed[n].add(d)}}}}
+  // 2) On-call (only on AM days; weekend/holiday first)
+  const ocOK=(n,d)=>{for(let t=1;t<set.ocSpacing;t++){if(d-t>=0&&isOC(G[n][d-t]))return false;if(d+t<D&&isOC(G[n][d+t]))return false}
+    for(const k of prev[n].ocAgo)if(d+1+k<set.ocSpacing)return false;return true};
+  const days=[...Array(D).keys()];const order=shuffle(days.filter(d=>spec[d]),rng).concat(shuffle(days.filter(d=>!spec[d]),rng));
+  for(const d of order){if(names.some(n=>isOC(G[n][d])))continue;let c=names.filter(n=>grp[n]==="OC"&&G[n][d]==null&&ocOK(n,d));
+    if(spec[d]&&set.legalOn){const ok=c.filter(n=>weekOKafter(n,d,"AM/OC"));if(ok.length)c=ok}
+    if(!c.length)c=names.filter(n=>grp[n]==="PM"&&G[n][d]==null&&ocOK(n,d));
+    if(!c.length)continue;
+    const sc=n=>ocCount[n]*10+(spec[d]?ocWk[n]*18+wkShift[n]*6:0)+rng()*4;
+    c.sort((a,b)=>sc(a)-sc(b));const n=c[0];G[n][d]="AM/OC";ocCount[n]++;if(spec[d]){ocWk[n]++;wkShift[n]++}}
+  // 3) Weekend/holiday AM = exactly weekendAM (on-call officer counts)
+  const weekdayOff=n=>G[n].reduce((t,c,d)=>t+(!spec[d]&&isOff(c)?1:0),0);
+  for(let d=0;d<D;d++){if(!spec[d])continue;
+    let a=names.filter(n=>isAM(G[n][d])).length;const need=set.weekendAM-a;
+    if(need>0){const useLeads=S.staff.some(x=>x.weekendLead);
+      const sc=n=>wkShift[n]*10-Math.max(0,weekdayOff(n)-blocks[n]*set.pmExtraOff-wkShift[n])*12+(grp[n]==="LV"?999:0)+rng()*5+(set.legalOn&&!weekOKafter(n,d,"AM")?40:0);
+      for(let k=0;k<need;k++){let c=names.filter(n=>G[n][d]==null);
+        // weekend pairing: exactly one weekend lead + one other officer
+        if(useLeads){const hasLead=names.some(n=>isAM(G[n][d])&&isLead(n));const want=c.filter(n=>hasLead?!isLead(n):isLead(n));if(want.length)c=want}
+        if(set.legalOn){const ok=c.filter(n=>weekOKafter(n,d,"AM"));if(ok.length)c=ok}
+        if(!c.length)break;c.sort((x,y)=>sc(x)-sc(y));const n=c[0];G[n][d]="AM";wkShift[n]++}}
+    for(const n of names)if(G[n][d]==null)G[n][d]=offCode(d);}
+  // 4) Days off on weekdays to meet entitlement
+  const specCount=spec.filter(Boolean).length;
+  const need={};for(const n of names){const specLv=[...lv[n]].filter(d=>spec[d]).length;
+    const ent=specCount-specLv+blocks[n]*set.pmExtraOff;need[n]=ent-G[n].filter(isOff).length}
+  let trailStart=D;for(let d=D-1;d>=0&&ctx.wd[d]!==6;d--)trailStart=d;
+  const amCnt=[];for(let d=0;d<D;d++)amCnt.push(spec[d]?0:names.filter(n=>G[n][d]==null||isAM(G[n][d])).length);
+  const runLen=(n,d)=>{let a=0,t0=d-1;for(;t0>=0&&(G[n][t0]==null||isWork(G[n][t0]));t0--)a++;if(t0<0)a+=prev[n].run;let t;let b=0;for(let t=d+1;t<D&&(G[n][t]==null||isWork(G[n][t]));t++)b++;return a+b+1};
+  let guard=0;
+  while(guard++<2000){const todo=names.filter(n=>need[n]>0);if(!todo.length)break;
+    todo.sort((a,b)=>need[b]-need[a]+(rng()-.5)*.5);const n=todo[0];
+    const cand=[];for(let d=0;d<D;d++)if(!spec[d]&&G[n][d]==null)cand.push(d);
+    if(!cand.length){need[n]=0;continue}
+    const sc=d=>{let v=amCnt[d]*3;if(amCnt[d]-1<minAM)v-=200;
+      if(d>0&&isRest(G[n][d-1])&&G[n][d-1]!==null)v+=5;if(d<D-1&&G[n][d+1]!==null&&isRest(G[n][d+1]))v+=5;
+      const rl=runLen(n,d);if(rl>set.maxRun)v+=8+rl;if(grp[n]==="OC"&&d>=D-3)v+=7;if(set.legalOn&&d>=trailStart)v+=6+(grp[n]==="OC"?8:0);return v+rng()*3};
+    cand.sort((a,b)=>sc(b)-sc(a));const d=cand[0];G[n][d]="OFF";amCnt[d]--;need[n]--;}
+  for(const n of names)for(let d=0;d<D;d++)if(G[n][d]==null)G[n][d]="AM";
+  nullIsAM=true;
+  // 4b) Labour law: keep every Mon–Sun week within Act s.22(1) hours/days (swap a day off between weeks)
+  if(set.legalOn)for(let it=0;it<200;it++){let moved=false;
+    for(const n of names){const w=wkBad(n);if(!w)continue;
+      const inWk=w.days.filter(x=>!x.prev&&(G[n][x.i]==null||G[n][x.i]==="AM")&&!spec[x.i]&&!pinned[n].has(x.i)).map(x=>x.i).sort((a,b)=>amCnt[b]-amCnt[a]);
+      if(!inWk.length)continue;const t=inWk[0];G[n][t]="OFF";amCnt[t]--;moved=true;
+      const back=[];for(let u=0;u<D;u++)if(G[n][u]==="OFF"&&!spec[u]&&!fixed[n].has(u)&&!pinned[n].has(u)&&u!==t&&!w.days.some(x=>x.i===u)){if(weekOKafter(n,u,"AM")&&runLen(n,u)<=set.maxRun)back.push(u)}
+      if(back.length){back.sort((a,b)=>amCnt[a]-amCnt[b]);const u=back[0];G[n][u]="AM";amCnt[u]++}}
+    if(!moved)break;}
+  // 4c) Act s.22 hand-over: move free weekday days-off into the last part-week so next month starts legally
+  if(set.legalOn&&trailStart<D){const nextDays=7-(D-trailStart),pmNeed=Math.min(nextDays,2);
+    const capDays=Math.min(set.maxWeekDays,Math.floor(wkCapH(set)/Math.max(1,set.hoursAM)));
+    const spare=n=>capDays-G[n].slice(trailStart).filter(c=>c==null||isWork(c)).length;
+    const moveOne=n=>{const tgt=[];for(let d=trailStart;d<D;d++)if((G[n][d]==null||G[n][d]==="AM")&&!spec[d]&&!pinned[n].has(d)&&amCnt[d]-1>=minAM)tgt.push(d);
+      const src=[];for(let u=0;u<trailStart;u++)if(G[n][u]==="OFF"&&!spec[u]&&!fixed[n].has(u)&&!pinned[n].has(u))src.push(u);
+      for(const t of tgt.sort((a,b)=>amCnt[b]-amCnt[a]))for(const u of src.sort((a,b)=>amCnt[a]-amCnt[b])){
+        const ot=G[n][t];G[n][t]="OFF";G[n][u]="AM";if(runLen(n,u)<=set.maxRun&&!wkBad(n)){amCnt[t]--;amCnt[u]++;return true}G[n][t]=ot;G[n][u]="OFF"}
+      return false};
+    // weekend leads must also be free to cover next month's first weekend
+    if(S.staff.some(x=>x.weekendLead)){let lr=names.filter(n=>isLead(n)&&grp[n]!=="LV"&&spare(n)>=1).length;
+      for(const n of shuffle(names.filter(n=>isLead(n)&&grp[n]!=="LV"&&spare(n)<1),rng)){if(lr>=2)break;if(moveOne(n)||(()=>{const t=[];for(let d=trailStart;d<D;d++)if((G[n][d]==null||G[n][d]==="AM")&&!spec[d]&&!pinned[n].has(d)&&amCnt[d]-1>=minAM)t.push(d);if(!t.length)return false;t.sort((a,b)=>amCnt[b]-amCnt[a]);G[n][t[0]]="OFF";fixed[n].add(t[0]);amCnt[t[0]]--;return true})())lr++}}
+    let ready=names.filter(n=>grp[n]==="OC"&&spare(n)>=pmNeed).length;
+    for(const n of shuffle(names.filter(n=>grp[n]==="OC"&&spare(n)<pmNeed),rng)){if(ready>=3)break;
+      let ok=true;while(spare(n)<pmNeed&&ok)ok=moveOne(n);
+      // no movable day off: give extra hand-over rest days (legal hours beat an exact days-off match)
+      while(spare(n)<pmNeed){const t=[];for(let d=trailStart;d<D;d++)if((G[n][d]==null||G[n][d]==="AM")&&!spec[d]&&!pinned[n].has(d)&&amCnt[d]-1>=minAM)t.push(d);
+        if(!t.length)break;t.sort((a,b)=>amCnt[b]-amCnt[a]);G[n][t[0]]="OFF";fixed[n].add(t[0]);amCnt[t[0]]--}
+      if(spare(n)>=pmNeed)ready++}}
+  // 5) Repair runs longer than maxRun
+  for(let it=0;it<300;it++){let fixedOne=false;
+    for(const n of shuffle([...names],rng)){let run=prev[n].run,start=0;
+      for(let d=0;d<D;d++){if(isWork(G[n][d])){if(run===0)start=d;run++;
+          if(run>set.maxRun){
+            const opts=[];for(let t=Math.max(0,start);t<=d;t++)if(G[n][t]==="AM"&&!spec[t]&&!pinned[n].has(t))opts.push(t);
+            if(!opts.length)continue;
+            opts.sort((a,b)=>(amCnt[b]-amCnt[a])+(rng()-.5));const t=opts[0];
+            G[n][t]="OFF";amCnt[t]--;
+            // compensate: turn one free weekday OFF back to AM where it creates no long run
+            const back=[];for(let u=0;u<D;u++)if(G[n][u]==="OFF"&&!spec[u]&&!fixed[n].has(u)&&!pinned[n].has(u)&&u!==t){G[n][u]="AM";if(runLen(n,u)<=set.maxRun&&!(u<prev[n].owe)&&!wkBad(n))back.push(u);G[n][u]="OFF"}
+            if(back.length){back.sort((a,b)=>amCnt[a]-amCnt[b]);const u=back[0];G[n][u]="AM";amCnt[u]++}
+            fixedOne=true;break;}}
+        else run=0;}
+      if(fixedOne)break;}
+    if(!fixedOne)break;}
+  // 6) Balance days off against entitlement (swap weekend duty / free weekday off)
+  const runOK=(n,u)=>{const old=G[n][u];G[n][u]="AM";const ok=runLen(n,u)<=set.maxRun&&!wkBad(n);G[n][u]=old;return ok};
+  const ent=n=>specCount-[...lv[n]].filter(d=>spec[d]).length+blocks[n]*set.pmExtraOff;
+  const diff=n=>G[n].filter(isOff).length-ent(n);
+  const freeOff=n=>{const o=[];for(let u=0;u<D;u++)if(G[n][u]==="OFF"&&!spec[u]&&!fixed[n].has(u)&&runOK(n,u))o.push(u);return o.sort((a,b)=>amCnt[a]-amCnt[b])};
+  for(let it=0;it<60;it++){let changed=false;
+    for(const n of names){let df=diff(n);
+      if(df>0){const fo=freeOff(n);
+        if(fo.length){const u=fo[0];G[n][u]="AM";amCnt[u]++;changed=true;continue}
+        // swap a weekend AM duty from someone who can give back a weekday off
+        let done=false;
+        for(let d=0;d<D&&!done;d++){if(!spec[d]||G[n][d]!=="OFF"||fixed[n].has(d)||!runOK(n,d))continue;
+          for(const q of shuffle(names.filter(q=>q!==n&&G[q][d]==="AM"&&!pinned[q].has(d)&&isLead(q)===isLead(n)),rng)){   // keep the weekend-lead pairing
+            G[n][d]="AM";G[q][d]=offCode(d);const qf=freeOff(q);
+            if(qf.length&&diff(q)>0&&!wkBad(n)){const u=qf[0];G[q][u]="AM";amCnt[u]++;done=true;break}
+            G[n][d]="OFF";G[q][d]="AM";}}
+        if(done)changed=true;}
+      else if(df<0){const c=[];for(let u=0;u<D;u++)if(!spec[u]&&G[n][u]==="AM"&&!pinned[n].has(u)&&amCnt[u]-1>=minAM)c.push(u);
+        if(c.length){c.sort((a,b)=>amCnt[b]-amCnt[a]);const u=c[0];G[n][u]="OFF";amCnt[u]--;changed=true}}}
+    if(!changed)break;}
+  return G;
+}
+function generateRoster(key,opts={}){
+  const {g,why}=determineGroups(key);const old=S.rosters[key];const pins=JSON.parse(JSON.stringify((old&&old.pins)||{}));
+  for(const n of Object.keys(pins)){if(!Object.keys(pins[n]).length){delete pins[n];continue}
+    const st=S.staff.find(x=>x.name===n);if(!st||isAmOnly(st,key)||g[n]===undefined)continue;
+    const mr=S.roles[key+"|"+n];if(mr&&mr!=="AUTO")continue;   // a role set on Staff & Roles always wins
+    const fz=mustBe(n,key);
+    if(fz){for(const d of Object.keys(pins[n])){const c=pins[n][d];if((fz==="OC"&&c==="PM")||(fz==="PM"&&isOC(c)))delete pins[n][d]}   // stale manual cells that would repeat last month's side
+      if(!Object.keys(pins[n]).length)delete pins[n];continue}
+    const cs=Object.values(pins[n]);
+    if(cs.includes("PM")&&g[n]!=="PM"){g[n]="PM";why[n]="Set by a manual roster change (PM entered)"}
+    else if(cs.some(isOC)&&g[n]!=="OC"){g[n]="OC";why[n]="Set by a manual roster change (on-call entered)"}}
+  const ctx=buildCtx(key,g);ctx.pins=pins;const set=S.settings;
+  let best=null,bestV=null,used=set.minAM;const N=opts.attempts||set.attempts,seed=opts.seed??Date.now();
+  for(let step=0;step<=set.relaxSteps;step++){const minAM=set.minAM-step;
+    for(let i=0;i<N;i++){const rng=mulberry((seed+i*7919+step*104729)>>>0);
+      const rows=attempt(ctx,rng,minAM);const v=validate(ctx,rows,minAM);
+      if(!bestV||v.score<bestV.score){best=rows;bestV=v;used=minAM}}
+    if(!bestV.issues.some(x=>x.sev>=2))break;}
+  // extra search rounds when a hard rule or the next-month hand-over is still not met
+  for(let extra=0;extra<3&&(bestV.issues.some(x=>x.sev>=2)||trailShort(ctx,best)>0);extra++)
+    for(let i=0;i<N;i++){const rng=mulberry((seed+i*15485863+extra*7)>>>0);const rows=attempt(ctx,rng,used);const v=validate(ctx,rows,used);if(v.score<bestV.score){best=rows;bestV=v}}
+  return {month:key,year:ctx.y,mon:ctx.m,rows:best,groups:g,groupWhy:why,minAM:used,status:"draft",source:opts.source||"auto",
+          generatedAt:new Date().toISOString(),edited:Object.keys(pins).length>0,pins,note:opts.note||"",
+          _score:bestV.score,_hard:bestV.issues.filter(x=>x.sev>=2).length};
+}
+
+</script>
+<script>
+"use strict";
+/* ===================== READ-ONLY LOCK + LOGIN ===================== */
+/* The app always opens read-only. "Unlock" asks for a username and password; only then can the roster be edited,
+   generated or exported. Only a salted SHA-256 hash of the login is kept (in this file for the default, in IndexedDB once changed). */
+let LOCKED=true,SIGNED=false;
+const LOCK_TABS=["staff","leave","holidays","rules","data"];
+function sha256(msg){const r=(v,n)=>(v>>>n)|(v<<(32-n)),b=new TextEncoder().encode(msg),l=b.length;
+  const K=sha256.K||(sha256.K=(()=>{const k=[];for(let n=2;k.length<64;n++){let p=true;for(let i=2;i*i<=n;i++)if(n%i===0){p=false;break}if(p)k.push(Math.floor((Math.cbrt(n)%1)*4294967296)>>>0)}return k})());
+  const n=((l+8)>>6)+1,w=new Uint32Array(n*16),W=new Uint32Array(64);
+  for(let i=0;i<l;i++)w[i>>2]|=b[i]<<(24-(i%4)*8);
+  w[l>>2]|=0x80<<(24-(l%4)*8);w[n*16-2]=Math.floor(l/536870912);w[n*16-1]=(l*8)>>>0;
+  let H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  for(let o=0;o<w.length;o+=16){let [a,c,d,e,f,g,h,k]=H;
+    for(let t=0;t<64;t++){if(t<16)W[t]=w[o+t];else{const x=W[t-15],y=W[t-2];W[t]=(W[t-16]+(r(x,7)^r(x,18)^(x>>>3))+W[t-7]+(r(y,17)^r(y,19)^(y>>>10)))>>>0}
+      const t1=(k+(r(f,6)^r(f,11)^r(f,25))+((f&g)^(~f&h))+K[t]+W[t])>>>0,t2=((r(a,2)^r(a,13)^r(a,22))+((a&c)^(a&d)^(c&d)))>>>0;
+      k=h;h=g;g=f;f=(e+t1)>>>0;e=d;d=c;c=a;a=(t1+t2)>>>0}
+    H=[a,c,d,e,f,g,h,k].map((v,i)=>(H[i]+v)>>>0)}
+  return H.map(x=>x.toString(16).padStart(8,"0")).join("")}
+
+const RO_MSG="Read-only. Select Unlock and log in to make changes.";
+function applyLock(){document.body.classList.toggle("locked",LOCKED);
+  document.querySelectorAll("#tabs button").forEach(b=>{if(LOCK_TABS.includes(b.dataset.t)){b.disabled=LOCKED;b.title=LOCKED?"Locked. Select Unlock and log in.":""}});
+  const lb=document.getElementById("lockBtn");lb.textContent=LOCKED?"Unlock":"Lock";lb.className=LOCKED?"btn":"btn ghost";lb.title=LOCKED?"Log in to edit, generate or export":"Return to read-only";
+  document.getElementById("hdrStatus").classList.toggle("ro",LOCKED)}
+const LOGIN={fails:0,until:0};
+function openLogin(){const m=document.getElementById("login");document.getElementById("loginForm").reset();document.getElementById("loginErr").textContent="";m.style.display="grid";document.getElementById("loginU").focus()}
+function closeLogin(){if(!SIGNED)return;document.getElementById("login").style.display="none";document.getElementById("loginForm").reset()}
+const elx=id=>document.getElementById(id);
+async function tryLogin(e){e.preventDefault();const err=elx("loginErr");
+  if(Date.now()<LOGIN.until){err.textContent=`Too many attempts. Wait ${Math.ceil((LOGIN.until-Date.now())/1000)} s.`;return}
+  const u=elx("loginU").value.trim().toLowerCase(),p=elx("loginP").value;
+  const r=await sb.auth.signInWithPassword({email:u,password:p});
+  if(r.error){LOGIN.fails++;elx("loginP").value="";
+    if(LOGIN.fails>=5){LOGIN.fails=0;LOGIN.until=Date.now()+30000;err.textContent="Too many attempts. Wait 30 s."}else err.textContent="Wrong email or password.";return}
+  LOGIN.fails=0;err.textContent="";await afterSignIn()}
+async function signUp(){const u=elx("loginU").value.trim().toLowerCase(),p=elx("loginP").value,err=elx("loginErr");
+  if(!u||p.length<8){err.textContent="Enter your email and a password of 8 or more characters, then select Create account.";return}
+  const r=await sb.auth.signUp({email:u,password:p});
+  if(r.error){err.textContent=r.error.message;return}
+  if(r.data.session)await afterSignIn();else err.textContent="Account created. Check your email to confirm it, then sign in."}
+async function resetPw(){const u=elx("loginU").value.trim().toLowerCase(),err=elx("loginErr");
+  if(!u){err.textContent="Enter your email first.";return}
+  const r=await sb.auth.resetPasswordForEmail(u,{redirectTo:location.origin+location.pathname});
+  err.textContent=r.error?r.error.message:"Password reset email sent."}
+async function afterSignIn(){
+  const u=(await sb.auth.getUser()).data.user;ME.email=((u&&u.email)||"").toLowerCase();
+  const a=await sb.from("allowed_users").select("email,full_name,role").eq("email",ME.email).maybeSingle();
+  if(!a.data){document.querySelector("main").innerHTML=`<div class="panel"><b>${esc(ME.email)}</b> is signed in but has not been given access yet. Ask an Admin to add this email, then sign in again.</div>`;
+    elx("hdrStatus").textContent="No access";elx("lockBtn").style.display="none";SIGNED=true;closeLogin();return}
+  const p=await sb.from("role_permissions").select("*").eq("role",a.data.role).single();
+  Object.assign(ME,{role:a.data.role,name:a.data.full_name||"",canEdit:!!(p.data&&p.data.can_edit),canManage:!!(p.data&&p.data.can_manage_users)});
+  SIGNED=true;closeLogin();elx("outBtn").title=`${ME.email} (${ME.role})`;
+  if(ME.canEdit)await seedIfEmpty(false);
+  await loadAll();LOCKED=true;applyLock();setHdr();render();
+  try{await monthlyCheck()}catch(e){}
+  if(!afterSignIn.t)afterSignIn.t=setInterval(()=>monthlyCheck().catch(()=>{}),60*60*1000)}
+async function unlockNow(){if(!ME.canEdit){toast(`Your role (${ME.role}) is view-only.`);return}
+  LOCKED=false;applyLock();setHdr();render();await log("Editing unlocked");await upgradeIfNeeded();await monthlyCheck();toast("Unlocked. Select Lock when finished.")}
+async function signOut(){await sb.auth.signOut();location.reload()}
+async function lockNow(){if(busy){toast("Wait for the roster to finish building.");return}LOCKED=true;document.getElementById("cellmenu").style.display="none";
+  if(LOCK_TABS.includes(S.view.tab))switchTab("roster");applyLock();setHdr();render();await log("Editing locked (read-only)");toast("Locked. The roster is read-only.")}
+/* ===================== SUPABASE STORAGE ===================== */
+const SB_URL="https://bxircyceqnnzrnduguva.supabase.co",SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4aXJjeWNlcW5uenJuZHVndXZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ0MjIzNzUsImV4cCI6MjEwOTk5ODM3NX0.hkyA5_jcWCDqa3qnzkoFssx2_LoVrjuEdnS1HoiAE9Q";
+const sb=supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+const ME={email:"",role:null,name:"",canEdit:false,canManage:false};
+const ROLES=["Admin","PLO","Senior","Level 1","Probation","Intern","Assistant","Trainee"];
+const TBL={staff:["staff","name"],holidays:["holidays","date"],rosters:["rosters","month"],roles:["roles","key"],settings:["settings","key"],leave:["leave","id"],log:["audit_log","id"]};
+const chk=r=>{if(r.error)throw new Error(r.error.message);return r};
+async function getAll(s){const [t]=TBL[s],ided=s==="leave"||s==="log";
+  let q=sb.from(t).select(ided?"id,data":"data");
+  q=s==="log"?q.order("id",{ascending:false}).limit(100):ided?q.order("id"):q.limit(5000);
+  const rows=chk(await q).data.map(x=>ided?{...x.data,id:x.id}:x.data);if(s==="log")rows.reverse();return rows}
+async function getOne(s,k){const [t,c]=TBL[s];const r=chk(await sb.from(t).select("data").eq(c,k).maybeSingle());return r.data?r.data.data:undefined}
+async function put(s,v){const [t,c]=TBL[s];
+  if(s==="leave"||s==="log"){const {id,...rest}=v;
+    if(id)chk(await sb.from(t).upsert({id,data:rest}));
+    else{const r=chk(await sb.from(t).insert({data:rest}).select("id").single());v.id=r.data.id}return}
+  chk(await sb.from(t).upsert({[c]:v[c],data:v,updated_at:new Date().toISOString()}))}
+async function del(s,k){const [t,c]=TBL[s];chk(await sb.from(t).delete().eq(c,k))}
+async function clearStore(s){const [t,c]=TBL[s];chk(await sb.from(t).delete().not(c,"is",null))}
+async function log(msg){try{if(ME.canEdit)await put("log",{ts:new Date().toISOString(),msg:`${msg} [${ME.email}]`})}catch(e){}}
+/* ===================== STATE ===================== */
+async function loadAll(){
+  const [st,lv,ho,ro,rl,se]=await Promise.all([getAll("staff"),getAll("leave"),getAll("holidays"),getAll("rosters"),getAll("roles"),getAll("settings")]);
+  const order=JSON.parse(document.getElementById("seed").textContent).staff.map(s=>s.name);
+  S.staff=st.sort((a,b)=>(a.order??order.indexOf(a.name)??99)-(b.order??order.indexOf(b.name)??99));
+  S.leave=lv;S.holidays=ho.sort((a,b)=>a.date.localeCompare(b.date));
+  S.rosters={};ro.forEach(r=>S.rosters[r.month]=r);
+  S.roles={};rl.forEach(r=>S.roles[r.key]=r.role);
+  const sv=se.find(x=>x.key==="settings");S.settings={...DEFAULTS,...(sv?sv.value:{})};S._needsUpgrade=!!(sv&&sv.value&&(sv.value.rulesVer||0)<DEFAULTS.rulesVer);S.settings.rulesVer=DEFAULTS.rulesVer;
+}
+async function seedIfEmpty(force){
+  const has=await getAll("staff");if(has.length&&!force)return false;
+  for(const s of ["staff","leave","holidays","rosters","roles","settings"])await clearStore(s);
+  const seed=JSON.parse(document.getElementById("seed").textContent);
+  for(const [i,s] of seed.staff.entries())await put("staff",{...s,order:i});
+  for(const l of seed.leave)await put("leave",l);
+  for(const h of seed.holidays)await put("holidays",h);
+  for(const r of seed.roles||[])await put("roles",r);
+  for(const r of seed.rosters)await put("rosters",{...r,year:+r.month.slice(0,4),mon:+r.month.slice(5),generatedAt:new Date().toISOString(),edited:false});
+  await put("settings",{key:"settings",value:{...DEFAULTS,rulesVer:5}});   // the built-in months pre-date the overtime rule: they re-build at the first unlock
+  await log(force?"Reset to starting data (Nov 2026 original, Dec 2026 & Jan 2027 from Excel v9)":"Database created and seeded");
+  return true;
+}
+
+/* ===================== PERFORMANCE: background worker pool ===================== */
+/* The engine script runs inside several Web Workers at once; each searches part of the candidate rosters
+   in parallel and the best one wins. The page stays responsive while a roster is being built. */
+const POOL={workers:[],ok:null,seq:0,wait:{}};
+function poolInit(){if(POOL.ok!==null)return POOL.ok;
+  try{const src=document.getElementById("engine").textContent+`
+self.onmessage=e=>{const {id,state,key,opts}=e.data;S.settings=state.settings;S.staff=state.staff;S.leave=state.leave;S.holidays=state.holidays;S.rosters=state.rosters;S.roles=state.roles;
+  try{self.postMessage({id,ok:true,r:generateRoster(key,opts)})}catch(err){self.postMessage({id,ok:false,err:String(err&&err.message||err)})}};`;
+    const url=URL.createObjectURL(new Blob([src],{type:"text/javascript"}));
+    const n=Math.max(2,Math.min(8,(navigator.hardwareConcurrency||4)-1));
+    for(let i=0;i<n;i++){const w=new Worker(url);w.onmessage=e=>{const cb=POOL.wait[e.data.id];delete POOL.wait[e.data.id];cb&&cb(e.data)};w.onerror=()=>{POOL.ok=false};POOL.workers.push(w)}
+    POOL.ok=true}catch(e){POOL.ok=false}
+  return POOL.ok}
+function stateFor(key){const keep={};for(let i=12;i>=2;i--){const k=addMonth(key,-i);if(S.rosters[k])keep[k]={month:k,groups:S.rosters[k].groups||{}}}
+  for(const k of [addMonth(key,-1),key])if(S.rosters[k])keep[k]=S.rosters[k];
+  return {settings:S.settings,staff:S.staff,leave:S.leave,holidays:S.holidays,rosters:keep,roles:S.roles}}
+async function generateFast(key,opts={}){
+  const t0=performance.now();
+  if(!poolInit())return generateRoster(key,opts);          // fallback: same engine on the page
+  const n=POOL.workers.length,per=Math.ceil(S.settings.attempts/n)+20,state=stateFor(key),base=Date.now();
+  const jobs=POOL.workers.map((w,i)=>new Promise(res=>{const id=++POOL.seq;POOL.wait[id]=res;w.postMessage({id,state,key,opts:{...opts,attempts:per,seed:base+i*1000003}})}));
+  const out=(await Promise.all(jobs)).filter(x=>x.ok).map(x=>x.r);
+  if(!out.length)return generateRoster(key,opts);
+  out.sort((a,b)=>(a._hard>0)-(b._hard>0)||b.minAM-a.minAM||a._score-b._score);   // lawful first, highest AM floor, then fairest
+  const r=out[0];r.buildMs=Math.round(performance.now()-t0);r.cores=n;return r}
+
+function busyOn(msg){const b=document.getElementById("busy");document.getElementById("busyMsg").textContent=msg;
+  document.getElementById("busySub").textContent=POOL.ok?`Searching ${S.settings.attempts} candidate rosters on ${POOL.workers.length} processor cores`:"Checking every rule and the Employment Act";
+  clearTimeout(busyOn._t);busyOn._t=setTimeout(()=>b.style.display="grid",120)}
+function busyOff(){clearTimeout(busyOn._t);document.getElementById("busy").style.display="none"}
+/* ===================== AUTOMATION ===================== */
+let busy=false;
+async function saveRoster(r){S.rosters[r.month]=r;await put("rosters",r)}
+async function regenerate(key,source,note){busyOn(`Building ${monthLabel(key)}…`);let r;try{r=await generateFast(key,{source,note})}finally{busyOff()}
+  {const bad=altBreaches(r);if(bad.length){await log(`${monthLabel(key)} NOT saved: same shift group two months running for ${bad.join(", ")}`);toast(`Not saved: ${bad.join(", ")} would repeat last month's shift group.`);return S.rosters[key]}}
+  await saveRoster(r);await log(`${monthLabel(key)} roster ${source==="auto-20th"?"auto-generated (20th rule)":"generated"}${note?" — "+note:""}`);return r}
+/* Auto-populate: regenerate this month and every later draft month (rotation depends on the month before) */
+async function autoPopulateFrom(key,reason){
+  if(busy||LOCKED)return;busy=true;setHdr("Re-populating roster…");
+  try{const keys=Object.keys(S.rosters).sort();const done=[];
+    const targets=keys.filter(k=>k>=key&&S.rosters[k].status!=="published");
+    if(!S.rosters[key]&&key>=currentKey())targets.unshift(key);
+    for(const k of [...new Set(targets)].sort()){
+      await regenerate(k,"auto",reason);done.push(monthLabel(k));}
+    if(done.length)toast(`Roster auto-populated: ${done.join(", ")}`);
+  }finally{busy=false;setHdr();render();}}
+function currentKey(){const t=new Date();return ym(t.getFullYear(),t.getMonth()+1)}
+async function monthlyCheck(){
+  if(LOCKED){setHdr();return}                    // read-only: nothing is generated until someone unlocks
+  const t=new Date(),cur=currentKey(),next=addMonth(cur,1);
+  if(!S.rosters[cur]){await regenerate(cur,"auto","current month was missing");toast(`${monthLabel(cur)} roster created`)}
+  if(t.getDate()>=S.settings.autoDay&&!S.rosters[next]){await regenerate(next,"auto-20th",`created on ${t.toDateString()}`);toast(`${monthLabel(next)} roster auto-generated (20th of the month rule)`)}
+  await put("settings",{key:"lastCheck",value:t.toISOString()});setHdr();render();
+}
+
+/* ===================== UI HELPERS ===================== */
+const $=(s,el=document)=>el.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function toast(m,action,fn){const t=$("#toast");t.textContent=m;
+  if(action){const b=document.createElement("button");b.className="btn";b.style.cssText="margin-left:10px;padding:3px 10px";b.textContent=action;b.onclick=()=>{t.style.display="none";fn()};t.appendChild(b)}
+  t.style.display="block";clearTimeout(t._h);t._h=setTimeout(()=>t.style.display="none",action?9000:5000)}
+function switchTab(tab){if(LOCKED&&LOCK_TABS.includes(tab)){toast(RO_MSG);return}S.view.tab=tab;document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on",x.dataset.t===tab));
+  document.querySelectorAll("main>section").forEach(s=>s.hidden=s.id!=="t-"+tab);render();window.scrollTo(0,0)}
+function setHdr(msg){const k=Object.keys(S.rosters).sort();const t=new Date();
+  const next=addMonth(currentKey(),1);const due=t.getDate()>=S.settings.autoDay?"due now":`on ${S.settings.autoDay} ${MONTHS[t.getMonth()]}`;
+  $("#hdrStatus").textContent=msg||((LOCKED?"Read-only · ":"")+(S.rosters[next]?`${monthLabel(next)} roster is ready`:LOCKED?`Unlock to build ${monthLabel(next)}`:`${monthLabel(next)} roster builds automatically ${due==="due now"?"now":due}`));}
+const cls=c=>c==="AM/OC"?"AMOC":["AM","PM","OFF","HO","LV","OC"].includes(c)?c:"other";
+
+/* ===================== RENDER: ROSTER ===================== */
+function render(){({roster:renderRoster,staff:renderStaff,leave:renderLeave,holidays:renderHolidays,rules:renderRules,data:renderData,help:renderHelp})[S.view.tab]()}
+function renderRoster(){
+  const el=$("#t-roster");const keys=Object.keys(S.rosters).sort();
+  if(!S.view.month||!S.rosters[S.view.month])S.view.month=keys.includes(addMonth(currentKey(),1))?addMonth(currentKey(),1):keys[keys.length-1];
+  const key=S.view.month,R=S.rosters[key];
+  const opts=keys.map(k=>`<option value="${k}" ${k===key?"selected":""}>${monthLabel(k)}</option>`).join("");
+  const [mName,mYear]=monthLabel(key).split(" ");
+  const pinCount=R&&R.pins?Object.values(R.pins).reduce((t,o)=>t+Object.keys(o).length,0):0;
+  const L=LOCKED,dis=L?'disabled title="Locked. Select Unlock and log in."':"";
+  let html=`<div class="rhead noprint">
+    <div class="mnav">
+      <button class="iconbtn" id="prevM" aria-label="Previous month"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <h2 class="mtitle">${mName} <span>${mYear}</span></h2>
+      <button class="iconbtn" id="nextM" aria-label="Next month"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg></button>
+      <select id="mSel" class="msel" aria-label="Choose month">${opts}</select>
+      ${R?`<span class="chip ${R.status}">${R.status==="published"?"Published":"Draft"}</span>`:""}
+    </div>
+    <div class="toolbar">
+      <div class="tgroup"><button class="btn${L?" ghost":""}" id="genNext" ${dis}>Generate next month</button>
+        <button class="btn ghost" id="regen" ${L||(R&&R.status==="published")?"disabled":""}>Re-populate</button>
+        ${!L&&pinCount&&R.status!=="published"?`<button class="btn ghost" id="clearPins">Clear ${pinCount} manual change${pinCount>1?"s":""}</button>`:""}
+        <button class="btn${L?"":" ghost"}" id="pub" ${L?'title="Log in to edit, generate or export"':""}>${L?"Unlock":R&&R.status==="published"?"Unlock month":"Publish and lock"}</button></div>
+      <div class="tgroup"><span class="tlabel">Export</span><button class="btn ghost" id="xlsx1" ${L?dis:'title="Coloured, landscape, fits one A4 page"'}>Excel</button>
+        <button class="btn ghost" id="xlsxAll" ${L?dis:'title="One sheet per month"'}>All months</button>
+        <button class="btn ghost" id="pdf" ${L?dis:'title="Opens the print window. Choose Save as PDF"'}>Print or PDF</button>
+        <button class="btn ghost" id="csv" ${dis}>CSV</button></div>
+      <div class="tgroup"><span class="tlabel">PM pattern</span><select id="patSel" aria-label="PM shift pattern" ${dis}>${Object.entries(PATTERN_LABEL).map(([v,l])=>`<option value="${v}" ${String(S.settings.pmPattern)===v?"selected":""}>${l}</option>`).join("")}</select></div>
+      ${R&&R.source!=="imported-original"?`<div class="tgroup"><button class="btn danger" id="delM" ${dis}>Delete month</button></div>`:""}
+    </div></div>
+  <p class="hint noprint">${L?"<b>Read-only.</b> The roster cannot be changed. Select <b>Unlock</b> and log in to edit, generate a new month or export.":"Click a cell to change it. Your change is kept (purple corner) and the rest of this month and every later draft month re-build around it. A red dot means a rule is broken. Published months are locked. Select <b>Lock</b> (top right) when finished."}</p>`;
+  if(!R){el.innerHTML=html+`<div class="panel">No roster yet.</div>`;bindRosterTop(key);return}
+  const {y,m:mon}=parseYM(key),D=daysIn(y,mon),orig=R.source==="imported-original";
+  const names=Object.keys(R.rows).filter(n=>S.staff.some(s=>s.name===n))
+    .sort((a,b)=>S.staff.findIndex(s=>s.name===a)-S.staff.findIndex(s=>s.name===b));
+  const groups=R.groups||{};const ctx=buildCtx(key,groups);ctx.names=names;
+  names.forEach(n=>{if(!ctx.lv[n])ctx.lv[n]=new Set();if(!ctx.prev[n])ctx.prev[n]=prevInfo(n,key)});
+  const V=orig?null:validate(ctx,R.rows,R.minAM??S.settings.minAM);
+  const hard=V?V.issues.filter(i=>i.sev>=2).length:0;
+  if(V){const own=V.issues.filter(i=>i.sev===1).length,law=V.issues.filter(i=>i.law).length,rule=hard-law;
+    const ck=(n,l,good,neutral)=>`<div class="ck ${neutral?"":good?"good":"badck"}"><span class="dot"></span><span class="n">${n}</span><span class="l">${l}</span></div>`;
+    html+=`<div class="checks">${ck(rule,"roster rule<br>breaches",rule===0)}${ck(law,"labour-law<br>breaches",law===0)}${ck(own,"officers owed<br>days off",own===0)}
+      ${ck(V.fair.pm,"PM shifts spread<br>(max − min)",0,1)}${ck(V.fair.oc,"on-call spread<br>(max − min)",0,1)}${ck(R.minAM??"–","weekday AM<br>floor used",0,1)}
+      ${(()=>{const ps=Object.keys(V.per).filter(n=>ctx.grp[n]!=="LV").map(n=>V.per[n]),t=ps.reduce((a,p)=>a+p.wkN,0),f=ps.reduce((a,p)=>a+p.wk40,0),ov=ps.reduce((a,p)=>a+p.over40,0);
+        return ck(ov?ov:`${f}/${t}`,ov?`week(s) above<br>${stdWk()} hours`:`staff weeks at<br>${stdWk()} h (full)`,!ov,!ov)})()}
+      ${(()=>{const g=Math.round(V.fair.ot||0),lim=S.settings.otGap??8;return ck(g,`h overtime gap<br>(top vs peers)`,g<=lim,g<=lim)})()}</div>
+      <div class="meta">${R.note?esc(R.note.charAt(0).toUpperCase()+R.note.slice(1))+". ":""}Built ${new Date(R.generatedAt).toLocaleString()}${R.buildMs?` in ${(R.buildMs/1000).toFixed(1)} s on ${R.cores} cores`:""}${R.edited?". Includes manual changes":""}.</div>`;}
+  else html+=`<div class="meta">Original paper roster, shown for reference. It is not checked against the new rules.</div>`;
+  // grid
+  const hs=holidaySet();
+  let th1=`<tr><th class="sticky">Staff</th><th class="sticky2">Group</th>`,th2=`<tr><th class="sticky"></th><th class="sticky2"></th>`;
+  const now=new Date(),todayIdx=(now.getFullYear()===y&&now.getMonth()+1===mon)?now.getDate():-1;
+  for(let d=1;d<=D;d++){const w=new Date(y,mon-1,d).getDay(),h=hs.has(dateStr(y,mon,d));const c=(d===todayIdx?"today ":"")+(h?"hol":(w===0||w===6)?"wk":"");th1+=`<th class="${c}" ${d===todayIdx?'title="Today"':""}>${d}</th>`;th2+=`<th class="${c}">${DOW[w].slice(0,2)}</th>`}
+  const tcols=V?["Off","Ent.","±","AM","PM","OC","Wknd","LV"]:[];
+  tcols.forEach(t=>{th1+=`<th>${t}</th>`;th2+=`<th></th>`});th1+="</tr>";th2+="</tr>";
+  let body="";
+  for(const n of names){const r=R.rows[n],g=groups[n];const f=V&&V.flags[n]||{};
+    const hl=S.view.hl&&S.view.hl.until>Date.now()&&S.view.hl.names.includes(n);const manual=S.roles[key+"|"+n]&&S.roles[key+"|"+n]!=="AUTO";
+    body+=`<tr><td class="sticky ${hl?"hl":""}" title="${esc((R.groupWhy||{})[n]||"")}">${hl?"★ ":""}${esc(n)}</td><td class="sticky2 ${hl?"hl":""}" title="${manual?"Role set on Staff & Roles":esc((R.groupWhy||{})[n]||"")}">${g?`<span class="pill ${g}">${g==="PM"?"PM":g==="OC"?"AM + OC":g==="AM"?"AM only":"Leave"}${manual?" ✎":""}</span>`:""}</td>`;
+    const pn=(R.pins||{})[n]||{};
+    for(let d=0;d<D;d++){const c=r[d]??"";body+=`<td class="c ${cls(c)}${f[d]?" flag":""}${pn[d]!==undefined?" pin":""}${ctx.spec[d]?" wkcol":""}" data-n="${esc(n)}" data-d="${d}"${pn[d]!==undefined?' title="Manual change, kept when the roster re-builds"':""}>${esc(c)}</td>`}
+    if(V){const p=V.per[n];body+=`<td class="t first">${p.off}</td><td class="t">${p.ent}</td><td class="t ${p.diff?"bad":""}">${p.diff>0?"+":""}${p.diff}</td><td class="t">${p.am}</td><td class="t">${p.pm}</td><td class="t">${p.oc}</td><td class="t">${p.wk}</td><td class="t">${p.lv}</td>`}
+    body+="</tr>";}
+  if(V){const row=(lab,arr,bad)=>`<tr class="cover"><td class="sticky">${lab}</td><td class="sticky2"></td>${arr.map((v,d)=>`<td class="${bad(v,d)?"bad":""}">${v}</td>`).join("")}${tcols.map(()=>"<td></td>").join("")}</tr>`;
+    const minAM=R.minAM??S.settings.minAM;
+    body+=row("AM staff",V.day.am,(v,d)=>ctx.spec[d]?v!==S.settings.weekendAM:v<minAM)+row("PM cover",V.day.pm,v=>v!==1)+row("On-call cover",V.day.oc,v=>v!==1);}
+  html+=`<div class="panel"><div class="print-title">VNH Laboratory Services — Staff Roster, ${monthLabel(key)} (${R.status}) · ${PATTERN_LABEL[S.settings.pmPattern]}</div><div class="gridwrap"><table class="grid"><thead>${th1}${th2}</thead><tbody>${body}</tbody></table></div>
+   <div class="legend">${[["AM","AM","Morning 0800–1700"],["PM","PM","Afternoon 1500–2300"],["AMOC","AM/OC","AM + home on-call 2300–0800"],["OFF","OFF","Day off"],["HO","HO","Public holiday off"],["LV","LV","Leave / holiday"]]
+     .map(([c,t,l])=>`<span><i class="sw c ${c}" style="display:inline-block">${t}</i>${l}</span>`).join("")}
+     <span><i class="sw" style="outline:3px solid var(--bad);outline-offset:-3px"></i>Rule broken</span>
+     <span><i class="sw" style="box-shadow:inset 0 0 0 3px #7030a0"></i>Manual change (fixed point)</span>
+     <span><b>✎</b> Role set on Staff &amp; Roles</span><span><b>★</b> Just updated from Staff &amp; Roles</span></div></div>`;
+  if(V){const list=V.issues.sort((a,b)=>b.sev-a.sev);
+    html+=`<div class="panel issues-panel"><b>Rule check</b><ul class="issues">${list.length?list.slice(0,80).map(i=>`<li class="${i.sev>=2?"bad":i.sev===0?"muted":""}">${i.law?"⚖ ":""}${esc(i.msg)}</li>`).join(""):`<li class="ok">All rules met: cover, rest after PM, max ${S.settings.maxRun} days in a row, on-call spacing, groups, days-off entitlement and labour law (Employment Act s.22, s.23, s.25).</li>`}</ul></div>`;}
+  if(V&&S.settings.legalOn){const st=S.settings;
+    html+=`<div class="panel issues-panel"><b>⚖ Labour-law compliance — Employment Act [Cap 160] &amp; PSSM</b>
+     <div class="muted" style="margin:4px 0 8px">Weeks run Monday–Sunday (the first week includes the end of last month). Hours exclude meal breaks: AM ${st.hoursAM} h, PM ${st.hoursPM} h, on-call ${st.hoursOC} h unless called in.
+      <b>40-hour week:</b> each officer is rostered for ${st.pssmWeekHours} h a week (${Math.round(st.pssmWeekHours/st.hoursAM)} shifts of ${st.hoursAM} h) and never more. Leave and public holidays on a Monday–Friday count as ${st.hoursAM} h. A week under ${st.pssmWeekHours} h comes from days off after PM shifts or time off given for weekend/holiday duty.
+      Overtime estimate = hours above the ${st.pssmWeekHours}-hour week. Unsocial hours = PM time after 20:00 (Act s.26(1)(c) night period 8 pm–4 am). Use these figures for PSC Form 4.1 (Overtime &amp; Unsocial Hours claim).
+      <b>Overtime:</b> no overtime is rostered (nobody above ${st.pssmWeekHours} h a week). Overtime-claim hours = Sunday/public-holiday hours + PM hours after 20:00 + hours above ${st.pssmWeekHours} h. They are shared out so no single officer claims more than the others on the same duties; more than ${st.otGap??8} h above the peer average is shown in red. An on-call night is claimed only if the officer is called in.</div>
+     <div style="overflow:auto"><table class="list"><thead><tr><th>Staff</th><th>Weeks at ${st.pssmWeekHours} h<br><span class="muted">full weeks</span></th><th>Lowest week<br><span class="muted">hours</span></th><th>Average<br><span class="muted">hours / week</span></th><th>Max hours in a week<br><span class="muted">limit ${wkCapH(st)}</span></th><th>Max days in a week<br><span class="muted">limit ${st.maxWeekDays}</span></th><th>Sundays / public holidays worked<br><span class="muted">s.23 — time off given?</span></th><th>Unsocial hours (PM after 20:00)</th><th>On-call nights</th><th>Hours above the ${st.pssmWeekHours}-hour week</th><th>Overtime-claim hours<br><span class="muted">estimate</span></th><th>Against peers<br><span class="muted">limit +${st.otGap??8} h</span></th><th>Status</th></tr></thead><tbody>
+     ${names.map(n=>{const p=V.per[n];const ok=!p.legal;return `<tr><td>${esc(n)}</td><td>${p.wk40} of ${p.wkN}</td><td>${p.minWk??"–"}</td><td>${p.wkN?(p.sumWk/p.wkN).toFixed(1):"–"}</td><td class="${p.maxWkH>wkCapH(st)?"bad":""}">${p.maxWkH}</td><td class="${p.maxWkD>st.maxWeekDays?"bad":""}">${p.maxWkD}</td>
+       <td>${p.sunPH}${p.sunPH?(p.diff>=0?" · ✔ time off given":" · ✖ owed"):""}</td><td>${p.unsocial}</td><td>${p.oc}</td><td>${p.otH}</td><td>${p.claimH}</td><td class="${p.claimGap>(st.otGap??8)?"bad":""}">${p.claimGap==null?"–":(p.claimGap>0?"+":"")+Math.round(p.claimGap)+" h"}</td><td style="color:${ok?"var(--ok)":"var(--bad)"};font-weight:bold">${ok?"Compliant":"Check"}</td></tr>`}).join("")}</tbody></table></div></div>`;}
+  el.innerHTML=html;bindRosterTop(key);
+  const tb=el.querySelector("table.grid");if(tb)tb.addEventListener("click",e=>{const td=e.target.closest("td.c");if(td)openCellMenu(e,key,td.dataset.n,+td.dataset.d)});   // one listener for the whole grid
+}
+function bindRosterTop(key){
+  const keys=Object.keys(S.rosters).sort();
+  $("#mSel").onchange=e=>{S.view.month=e.target.value;render()};
+  $("#prevM").onclick=()=>{const i=keys.indexOf(key);if(i>0){S.view.month=keys[i-1];render()}};
+  $("#nextM").onclick=()=>{const i=keys.indexOf(key);if(i<keys.length-1){S.view.month=keys[i+1];render()}};
+  $("#genNext").onclick=async()=>{const last=keys[keys.length-1];const k=addMonth(last,1);setHdr("Generating…");await regenerate(k,"manual","generated on request");S.view.month=k;toast(`${monthLabel(k)} generated`);setHdr();render()};
+  const rg=$("#regen");if(rg)rg.onclick=async()=>{await autoPopulateFrom(key,"re-populated on request")};
+  const cp=$("#clearPins");if(cp)cp.onclick=async()=>{const R=S.rosters[key];if(!confirm("Remove all manual changes for this month and re-build it?"))return;R.pins={};await saveRoster(R);await log(`${monthLabel(key)}: manual changes cleared`);await autoPopulateFrom(key,"manual changes cleared")};
+  $("#pub").onclick=async()=>{if(LOCKED){openLogin();return}const R=S.rosters[key];if(!R)return;
+    if(R.status!=="published"){const bad=altBreaches(R);if(bad.length){toast(`Cannot publish: ${bad.join(", ")} would be on the same shift group two months running. Select Re-populate.`);return}}R.status=R.status==="published"?"draft":"published";await saveRoster(R);await log(`${monthLabel(key)} ${R.status==="published"?"published & locked":"unlocked"}`);
+    if(R.status==="published"){LOCKED=true;document.getElementById("cellmenu").style.display="none";applyLock();setHdr();render();await log("Editing locked (read-only) after publishing");toast(`${monthLabel(key)} published. The roster is now read-only. Select Unlock and log in for any further change or export.`);return}
+    render()};
+  $("#csv").onclick=()=>exportCSV(key);
+  $("#xlsx1").onclick=()=>{exportXlsx([key]);toast("Excel file downloaded (landscape, coloured)")};
+  $("#xlsxAll").onclick=()=>{exportXlsx(keys);toast(`Excel file with ${keys.length} months downloaded`)};
+  $("#pdf").onclick=()=>{toast("In the print window choose 'Save as PDF'. Layout is landscape with colours.");setTimeout(()=>window.print(),300)};
+  $("#patSel").onchange=async e=>{S.settings.pmPattern=e.target.value;await put("settings",{key:"settings",value:S.settings});await log(`PM pattern set to: ${PATTERN_LABEL[e.target.value]}`);
+    const k=Object.keys(S.rosters).sort().find(k=>k>=key&&S.rosters[k].status!=="published");if(k)await autoPopulateFrom(k,`PM pattern: ${PATTERN_LABEL[e.target.value]}`);else render()};
+  const dm=$("#delM");if(dm)dm.onclick=async()=>{if(!confirm(`Delete the ${monthLabel(key)} roster?`))return;await del("rosters",key);delete S.rosters[key];await log(`${monthLabel(key)} deleted`);S.view.month=null;render()};
+}
+function openCellMenu(e,key,n,d){if(LOCKED){toast(RO_MSG);return}const R=S.rosters[key];if(R.status==="published"){toast("This month is published. Select Unlock month to edit.");return}
+  const isPin=R.pins&&R.pins[n]&&R.pins[n][d]!==undefined;
+  const m=$("#cellmenu");m.innerHTML=`<div class="muted" style="padding:2px 8px">${esc(n)} · ${d+1} ${monthLabel(key)}</div>`+CODES.map(c=>`<button data-c="${c}"><i class="sw c ${cls(c)}">${c}</i>${{AM:"Morning shift",PM:"Afternoon shift","AM/OC":"Morning + on-call",OFF:"Day off",HO:"Public holiday off",LV:"Leave"}[c]}</button>`).join("")
+    +(isPin?`<button data-c="__auto" style="color:#7030A0">Remove manual change</button>`:"");
+  m.style.display="block";const x=Math.min(e.clientX,innerWidth-160),y=Math.min(e.clientY,innerHeight-240);m.style.left=x+"px";m.style.top=y+"px";
+  m.querySelectorAll("button").forEach(b=>b.onclick=async()=>{m.style.display="none";const c=b.dataset.c;R.pins=R.pins||{};
+    {const f=mustBe(n,key),st=S.staff.find(x=>x.name===n);
+     if(isAmOnly(st,key)&&(c==="PM"||c==="AM/OC")){toast(`Not allowed: ${n} is AM only${st.amOnlyUntil?" until "+monthLabel(st.amOnlyUntil):""}.`);return}
+     if(f==="OC"&&c==="PM"){toast(`Not allowed: ${n} was on PM last month, so this month is AM + on-call only. No PM two months running.`);return}
+     if(f==="PM"&&c==="AM/OC"){toast(`Not allowed: ${n} was on AM last month, so this month is PM. No AM two months running.`);return}
+     const nx=S.rosters[addMonth(key,1)],ng=nx&&nx.groups&&nx.groups[n];
+     if(nx&&nx.status==="published"&&((c==="PM"&&ng==="PM")||(c==="AM/OC"&&isAMside(ng)))){toast(`Not allowed: next month (published) already has ${n} in that group.`);return}}
+    if(c==="__auto"){delete R.pins[n][d];if(!Object.keys(R.pins[n]).length)delete R.pins[n]}
+    else{(R.pins[n]=R.pins[n]||{})[d]=c;R.rows[n][d]=c}
+    R.edited=Object.keys(R.pins).length>0;await saveRoster(R);
+    const what=c==="__auto"?`manual change removed for ${n} on ${d+1}`:`${n} on ${d+1} ${monthLabel(key)} changed to ${c}`;
+    await log(`Roster change: ${what}`);
+    await autoPopulateFrom(key,what);});}
+document.addEventListener("click",e=>{const m=$("#cellmenu");if(m.style.display==="block"&&!m.contains(e.target)&&!e.target.classList.contains("c"))m.style.display="none"});
+function exportCSV(key){const R=S.rosters[key];const {y,m:mon}=parseYM(key);const D=daysIn(y,mon);
+  const lines=[["Staff","Group",...Array.from({length:D},(_,i)=>i+1)].join(",")];
+  for(const n of Object.keys(R.rows))lines.push([`"${n}"`,(R.groups||{})[n]||"",...R.rows[n]].join(","));
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/csv"}));a.download=`VNH_Lab_Roster_${key}.csv`;a.click();}
+
+/* ===================== EXCEL EXPORT (real .xlsx, coloured, landscape, no internet needed) ===================== */
+const CRC_T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(u8){let c=0xFFFFFFFF;for(let i=0;i<u8.length;i++)c=CRC_T[(c^u8[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0}
+function zipStore(files){ // files: [{name, data(string)}] -> Blob (stored, no compression)
+  const enc=new TextEncoder(),parts=[],central=[];let off=0;
+  for(const f of files){const name=enc.encode(f.name),data=enc.encode(f.data),crc=crc32(data);
+    const h=new DataView(new ArrayBuffer(30));h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(8,0,true);
+    h.setUint16(10,0,true);h.setUint16(12,0x21,true);h.setUint32(14,crc,true);h.setUint32(18,data.length,true);h.setUint32(22,data.length,true);h.setUint16(26,name.length,true);h.setUint16(28,0,true);
+    parts.push(new Uint8Array(h.buffer),name,data);
+    const c=new DataView(new ArrayBuffer(46));c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(10,0,true);
+    c.setUint16(12,0,true);c.setUint16(14,0x21,true);c.setUint32(16,crc,true);c.setUint32(20,data.length,true);c.setUint32(24,data.length,true);c.setUint16(28,name.length,true);
+    c.setUint16(30,0,true);c.setUint16(32,0,true);c.setUint16(34,0,true);c.setUint16(36,0,true);c.setUint32(38,0,true);c.setUint32(42,off,true);
+    central.push(new Uint8Array(c.buffer),name);off+=30+name.length+data.length;}
+  const cs=central.reduce((t,a)=>t+a.length,0);const e=new DataView(new ArrayBuffer(22));e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);
+  e.setUint32(12,cs,true);e.setUint32(16,off,true);
+  return new Blob([...parts,...central,new Uint8Array(e.buffer)],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});}
+const xesc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const colL=i=>{let s="";i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s};
+/* style table: index -> [fill, fontColor, bold, border] */
+const XS=[["", "000000",0,0],               //0 default
+  ["DDE1F6","2A2D7A",0,1,8],["F4C3D3","7A1F45",1,1,8],["2A2D7A","FFFFFF",1,1,6.5],["FFFFFF","9AA1B5",0,1,7.5],["CFE6C2","1F5A37",1,1,8],["FCE7B6","7A5200",1,1,8],["4A4F6A","FFFFFF",1,1,8],["EEEEEE","000000",0,1,8], //1-8 AM PM AM/OC OFF HO LV OC other (H&E palette, as on screen)
+  ["BDD7EE","000000",1,1],["D0D0D0","000000",1,1],["A9D08E","000000",1,1], //9 hdr 10 wkhdr 11 holhdr
+  ["FFFFFF","000000",0,1],["FFFBE6","000000",0,1],["E02424","FFFFFF",1,1],["F6F8FB","000000",1,1], //12 name 13 tally 14 bad 15 cover
+  ["", "1F4E79",1,0],["","5B6878",0,0],      //16 title 17 note
+  ["FCE4D6","000000",1,1],["DDEBF7","000000",1,1],["E2EFDA","000000",1,1],["FFF2CC","000000",1,1]]; //18 PM grp 19 OC grp 20 AM grp 21 LV grp
+const CODE_STYLE={"AM":1,"PM":2,"AM/OC":3,"OFF":4,"HO":5,"LV":6,"OC":7};
+function stylesXml(){
+  const fills=['<fill><patternFill patternType="none"/></fill>','<fill><patternFill patternType="gray125"/></fill>'];const fillIdx={};
+  const fonts=['<font><sz val="11"/><name val="Calibri"/></font>'];const fontIdx={};   /* font 0 = workbook default, so column widths map to millimetres reliably */const xfs=[];
+  for(const [fill,col,b,bd,sz] of XS){let fi=0;if(fill){if(fillIdx[fill]==null){fillIdx[fill]=fills.length;fills.push(`<fill><patternFill patternType="solid"><fgColor rgb="FF${fill}"/><bgColor indexed="64"/></patternFill></fill>`)}fi=fillIdx[fill]}
+    const fs=sz||(b===1&&col==="1F4E79"?15:9),fk=col+b+"|"+fs;if(fontIdx[fk]==null){fontIdx[fk]=fonts.length;fonts.push(`<font>${b?"<b/>":""}<sz val="${fs}"/><color rgb="FF${col}"/><name val="Arial"/></font>`)}
+    xfs.push(`<xf numFmtId="0" fontId="${fontIdx[fk]}" fillId="${fi}" borderId="${bd?1:0}" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="${xfs.length===12||xfs.length===16||xfs.length===17?"left":"center"}" vertical="center"/></xf>`)}
+  // pinned (purple) and flagged (red) variants for codes 1..8
+  const extra=[];for(const [colr,base] of [["7030A0",22],["E02424",30]])for(let k=1;k<=8;k++){const [fill,col,b,,sz]=XS[k];const fk=col+b+"|"+(sz||9);
+    extra.push(`<xf numFmtId="0" fontId="${fontIdx[fk]}" fillId="${fillIdx[fill]}" borderId="${colr==="7030A0"?2:3}" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>`)}
+  const thin=c=>`<left style="thin"><color rgb="FF${c}"/></left><right style="thin"><color rgb="FF${c}"/></right><top style="thin"><color rgb="FF${c}"/></top><bottom style="thin"><color rgb="FF${c}"/></bottom>`;
+  const med=c=>`<left style="medium"><color rgb="FF${c}"/></left><right style="medium"><color rgb="FF${c}"/></right><top style="medium"><color rgb="FF${c}"/></top><bottom style="medium"><color rgb="FF${c}"/></bottom>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<fonts count="${fonts.length}">${fonts.join("")}</fonts><fills count="${fills.length}">${fills.join("")}</fills>
+<borders count="4"><border><left/><right/><top/><bottom/><diagonal/></border><border>${thin("B0B7C3")}<diagonal/></border><border>${med("7030A0")}<diagonal/></border><border>${med("E02424")}<diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${xfs.length+extra.length}">${xfs.join("")}${extra.join("")}</cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;}
+function sheetXml(key){
+  const R=S.rosters[key];const {y,m:mon}=parseYM(key);const D=daysIn(y,mon);const hs=holidaySet();
+  const names=Object.keys(R.rows).filter(n=>S.staff.some(s=>s.name===n)).sort((a,b)=>S.staff.findIndex(s=>s.name===a)-S.staff.findIndex(s=>s.name===b));
+  const orig=R.source==="imported-original";const groups=R.groups||{};let V=null;
+  if(!orig){const ctx=buildCtx(key,groups);ctx.names=names;names.forEach(n=>{if(!ctx.lv[n])ctx.lv[n]=new Set();if(!ctx.prev[n])ctx.prev[n]=prevInfo(n,key)});V=validate(ctx,R.rows,R.minAM??S.settings.minAM);V.spec=ctx.spec}
+  const rows=[];let r=0;const C=(c,v,st,num)=>`<c r="${colL(c)}${r}" s="${st}"${v===""||v==null?"":num?`><v>${v}</v></c>`:` t="inlineStr"><is><t>${xesc(v)}</t></is></c>`}${v===""||v==null?"/>":""}`;
+  const row=(cells,ht)=>{rows.push(`<row r="${r}"${ht?` ht="${ht}" customHeight="1"`:""}>${cells.join("")}</row>`)};
+  /* ---- page geometry: A4 landscape, content sized to fill the printable area both ways ---- */
+  const tl=V?["Off","Ent.","±","AM","PM","OC","Wknd","LV"]:[];
+  const PW=297-2*5.08, PH=210-6.35-8.9;                     // printable mm (margins below)
+  const nBody=names.length+(V?3:0);
+  const hTitle=10,hSub=6,hGap=2,hHdr=7,hDow=5.5,hLeg=6.5;
+  const hBody=Math.max(4.5,(PH-hTitle-hSub-hGap-hHdr-hDow-hGap-hLeg)/nBody);
+  const wName=36,wGrp=15,wT=7.2,wDay=(PW-wName-wGrp-tl.length*wT)/D;
+  const pt=mm=>(mm*72/25.4).toFixed(2), cw=mm=>Math.max(1,mm/0.26458/7).toFixed(2);   // OOXML width = pixels / max digit width (Calibri 11 = 7 px)
+  const lastCol=1+D+tl.length, merges=[];
+  r=1;row([C(0,`VNH Laboratory Services staff roster, ${monthLabel(key)}`,16)],pt(hTitle));merges.push(`A1:${colL(lastCol)}1`);
+  r=2;row([C(0,`${R.status==="published"?"Published":"Draft"}. ${PATTERN_LABEL[S.settings.pmPattern]}. AM 0800–1700, PM 1500–2300, AM/OC = AM then home on-call 2300–0800. Exported ${new Date().toLocaleString()}.`,17)],pt(hSub));merges.push(`A2:${colL(lastCol)}2`);
+  r=3;row([],pt(hGap));
+  r=4;{const c=[C(0,"Staff",9),C(1,"Group",9)];for(let d=1;d<=D;d++){const w=new Date(y,mon-1,d).getDay(),h=hs.has(dateStr(y,mon,d));c.push(C(1+d,d,h?11:(w===0||w===6)?10:9,1))}tl.forEach((t,i)=>c.push(C(2+D+i,t,9)));row(c,pt(hHdr))}
+  r=5;{const c=[C(0,"",9),C(1,"",9)];for(let d=1;d<=D;d++){const w=new Date(y,mon-1,d).getDay(),h=hs.has(dateStr(y,mon,d));c.push(C(1+d,DOW[w].slice(0,2),h?11:(w===0||w===6)?10:9))}tl.forEach((t,i)=>c.push(C(2+D+i,"",9)));row(c,pt(hDow))}
+  r=6;
+  for(const n of names){const c=[C(0,n,12)];const g=groups[n];c.push(C(1,g?{PM:"PM",OC:"On-call",AM:"AM only",LV:"Leave"}[g]:"",g?{PM:18,OC:19,AM:20,LV:21}[g]:12));
+    const pn=(R.pins||{})[n]||{},fl=V&&V.flags[n]||{};
+    for(let d=0;d<D;d++){const code=R.rows[n][d]??"";let st=CODE_STYLE[code]||8;if(fl[d])st=30+st-1;else if(pn[d]!==undefined)st=22+st-1;c.push(C(2+d,code,st))}
+    if(V){const p=V.per[n];[p.off,p.ent,p.diff,p.am,p.pm,p.oc,p.wk,p.lv].forEach((v,i)=>c.push(C(2+D+i,v,i===2&&v!==0?14:13,1)))}
+    row(c,pt(hBody));r++;}
+  if(V){const minAM=R.minAM??S.settings.minAM;
+    for(const [lab,arr,bad] of [["AM staff",V.day.am,(v,d)=>V.spec[d]?v!==S.settings.weekendAM:v<minAM],["PM cover",V.day.pm,v=>v!==1],["On-call cover",V.day.oc,v=>v!==1]]){
+      const c=[C(0,lab,15),C(1,"",15)];arr.forEach((v,d)=>c.push(C(2+d,v,bad(v,d)?14:15,1)));row(c,pt(hBody));r++;}}
+  row([],pt(hGap));r++;
+  /* legend on one row: code swatch + label merged across the next day columns */
+  {const leg=[["AM",1,"Morning"],["PM",2,"Afternoon"],["AM/OC",3,"AM + on-call"],["OFF",4,"Day off"],["HO",5,"Holiday off"],["LV",6,"Leave"],["",22,"Manual change"],["",30,"Rule broken"]];
+   const c=[C(0,"Legend",9)];let col=2;const span=Math.max(3,Math.floor((D+tl.length)/leg.length));
+   for(const [t,st,l] of leg){if(col+span>lastCol+1)break;c.push(C(col,t,st));c.push(C(col+1,l,17));merges.push(`${colL(col+1)}${r}:${colL(col+span-1)}${r}`);col+=span}
+   row(c,pt(hLeg))}
+  const last=colL(lastCol);
+  const cols=`<cols><col min="1" max="1" width="${cw(wName)}" customWidth="1"/><col min="2" max="2" width="${cw(wGrp)}" customWidth="1"/><col min="3" max="${2+D}" width="${cw(wDay)}" customWidth="1"/>${tl.length?`<col min="${3+D}" max="${2+D+tl.length}" width="${cw(wT)}" customWidth="1"/>`:""}</cols>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:${last}${r}"/><sheetViews><sheetView workbookViewId="0" zoomScale="90"><pane xSplit="2" ySplit="5" topLeftCell="C6" activePane="bottomRight" state="frozen"/></sheetView></sheetViews>
+<sheetFormatPr defaultRowHeight="15"/>${cols}<sheetData>${rows.join("")}</sheetData><mergeCells count="${merges.length}">${merges.map(m=>`<mergeCell ref="${m}"/>`).join("")}</mergeCells>
+<printOptions horizontalCentered="1" verticalCentered="1"/><pageMargins left="0.2" right="0.2" top="0.25" bottom="0.35" header="0.1" footer="0.15"/>
+<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="1"/><headerFooter><oddFooter>&amp;L${xesc(monthLabel(key))} roster&amp;RPage &amp;P of &amp;N</oddFooter></headerFooter></worksheet>`;}
+function exportXlsx(keys){
+  const sheets=keys.map((k,i)=>({k,name:monthLabel(k).slice(0,31),file:`xl/worksheets/sheet${i+1}.xml`,xml:sheetXml(k)}));
+  const files=[
+   {name:"[Content_Types].xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map(s=>`<Override PartName="/${s.file}" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>`},
+   {name:"_rels/.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
+   {name:"xl/workbook.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((s,i)=>`<sheet name="${xesc(s.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")}</sheets></workbook>`},
+   {name:"xl/_rels/workbook.xml.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((s,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+   {name:"xl/styles.xml",data:stylesXml()},...sheets.map(s=>({name:s.file,data:s.xml}))];
+  const a=document.createElement("a");a.href=URL.createObjectURL(zipStore(files));
+  a.download=keys.length===1?`VNH_Lab_Roster_${keys[0]}.xlsx`:`VNH_Lab_Roster_${keys[0]}_to_${keys[keys.length-1]}.xlsx`;document.body.appendChild(a);a.click();a.remove();
+  log(`Excel exported: ${keys.map(monthLabel).join(", ")}`);}
+
+/* ===================== RENDER: STAFF & ROLES ===================== */
+function renderStaff(){const el=$("#t-staff");const keys=Object.keys(S.rosters).sort();
+  const cur=S.view.roleMonth||addMonth(currentKey(),1);S.view.roleMonth=cur;
+  const months=[...new Set([...keys,cur,addMonth(keys[keys.length-1]||cur,1)])].sort().filter(k=>k>=currentKey()||S.rosters[k]);
+  const det=determineGroups(cur);const RM=S.rosters[cur];
+  const g=RM&&RM.groups?{...det.g,...RM.groups}:det.g,why=RM&&RM.groupWhy?{...det.why,...RM.groupWhy}:det.why;
+  const nxt=addMonth(cur,1),GL={PM:"PM",OC:"AM + on-call",AM:"AM only",LV:"Leave"};
+  let rows=S.staff.map((s,i)=>{const role=S.roles[cur+"|"+s.name]||"AUTO";const gg=g[s.name];const forced=mustBe(s.name,cur);
+    const nextG=isAmOnly(s,nxt)?"AM":gg==="PM"?"OC":isAMside(gg)?"PM":null;
+    return `<tr><td>${esc(s.name)}</td><td>${esc(s.dept||"")}</td>
+    <td><input type="checkbox" data-am="${esc(s.name)}" ${s.amOnly?"checked":""}>${s.amOnly?`<div style="margin-top:4px"><input type="month" data-amuntil="${esc(s.name)}" value="${s.amOnlyUntil||""}" title="Eligible for PM and on-call from this month (leave empty = AM only with no end date)" style="padding:2px 4px;font-size:12px;width:140px"></div>`:""}</td>
+    <td><input type="checkbox" data-lead="${esc(s.name)}" ${s.weekendLead?"checked":""} title="One weekend lead works AM on every Saturday, Sunday and public holiday"></td>
+    <td><input type="checkbox" data-act="${esc(s.name)}" ${s.active!==false?"checked":""}></td>
+    <td><select data-role="${esc(s.name)}" ${isAmOnly(s,cur)?"disabled":""}>${[["AUTO","Auto (rotation)"],["PM","PM Shifts"],["OC","AM + on-call"],["AM","AM only (this month)"]].map(([v,l])=>{const blocked=forced&&v!=="AUTO"&&(forced==="PM"?v!=="PM":v==="PM");
+        return `<option value="${v}" ${role===v?"selected":""} ${blocked?"disabled":""}>${l}${blocked?" (not allowed: same as last month)":""}</option>`}).join("")}</select></td>
+    <td>${s.active===false?"<span class='muted'>inactive</span>":`<span class="pill ${gg}">${GROUP_LABEL[gg]||"-"}</span> <span class="muted">${esc(why[s.name]||"")}</span>`}</td>
+    <td>${s.active===false?"":nextG?`<span class="pill ${nextG}">${GL[nextG]}</span>`:'<span class="muted">Balanced</span>'}</td>
+    <td><button class="btn danger" data-delstaff="${esc(s.name)}">Remove</button></td></tr>`}).join("");
+  el.innerHTML=`<div class="panel"><div class="row"><b>Role allocation for</b> <select id="roleM">${months.map(k=>`<option value="${k}" ${k===cur?"selected":""}>${monthLabel(k)}</option>`).join("")}</select>
+   <span class="muted">Any change in the <b>Role</b> column (or AM only / Active) is applied to the <b>Roster</b> page automatically — that month and every later draft month are re-built straight away.</span>
+   <button class="btn ghost" id="toRoster">Open ${monthLabel(cur)} on the Roster page →</button></div></div>
+   <div class="panel" style="overflow:auto"><table class="list"><thead><tr><th>Name</th><th>Department</th><th>AM only</th><th>Weekend lead</th><th>Active</th><th>Role (${monthLabel(cur)})</th><th>Group on the roster</th><th>${monthLabel(nxt)} (automatic)</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+   <div class="panel"><b>Add staff</b><div class="row" style="margin-top:6px"><input id="nsName" placeholder="Full name"><input id="nsDept" placeholder="Department"><label><input type="checkbox" id="nsAM"> AM only</label><button class="btn" id="nsAdd">Add</button></div></div>`;
+  $("#roleM").onchange=e=>{S.view.roleMonth=e.target.value;renderStaff()};
+  $("#toRoster").onclick=()=>{S.view.month=cur;switchTab("roster")};
+  /* push a Staff & Roles change through to the Roster page */
+  const syncRoster=async(names,reason,months)=>{
+    const ms=months||[cur];
+    for(const k of ms){const R=S.rosters[k];
+      if(R&&R.status==="published"){if(!confirm(`${monthLabel(k)} is published and locked.\nUnlock it and update the roster with this change?\n(Cancel = keep the published roster unchanged)`))continue;
+        R.status="draft";await saveRoster(R);await log(`${monthLabel(k)} unlocked to apply: ${reason}`)}}
+    S.view.month=ms[0];S.view.hl={names,until:Date.now()+20000};
+    const first=ms.find(k=>!S.rosters[k]||S.rosters[k].status!=="published")||ms[0];
+    await autoPopulateFrom(first,reason);
+    toast(`Roster updated — ${reason} (${monthLabel(ms[0])})`,"View on Roster",()=>{S.view.month=ms[0];switchTab("roster")});};
+  el.querySelectorAll("[data-role]").forEach(s=>s.onchange=async()=>{const n=s.dataset.role,k=cur+"|"+n,v=s.value;const f=mustBe(n,cur);
+    if(f&&v!=="AUTO"&&(f==="PM"?v!=="PM":v==="PM")){toast(`Not allowed: ${n} was on ${f==="PM"?"AM":"PM"} last month, so ${monthLabel(cur)} must be ${f==="PM"?"PM":"AM"}.`);renderStaff();return}
+    if(v==="AUTO"){await del("roles",k);delete S.roles[k]}else{await put("roles",{key:k,role:v});S.roles[k]=v}
+    // remove manual cell changes that contradict the new role
+    const RM=S.rosters[cur];if(RM&&RM.pins&&RM.pins[n]&&v!=="AUTO"){const bad=c=>(v==="OC"&&c==="PM")||(v==="PM"&&isOC(c))||(v==="AM"&&(c==="PM"||isOC(c)));
+      for(const d of Object.keys(RM.pins[n]))if(bad(RM.pins[n][d]))delete RM.pins[n][d];if(!Object.keys(RM.pins[n]).length)delete RM.pins[n];await saveRoster(RM)}
+    const label=v==="AUTO"?"Auto (rotation)":GROUP_LABEL[v];
+    await log(`Staff & Roles: ${n} → ${label} for ${monthLabel(cur)}`);await syncRoster([n],`${n} → ${label}`)});
+  el.querySelectorAll("[data-am]").forEach(c=>c.onchange=async()=>{const st=S.staff.find(x=>x.name===c.dataset.am);st.amOnly=c.checked;await put("staff",st);await log(`Staff & Roles: ${st.name} AM-only ${c.checked?"on":"off"}`);await syncRoster([st.name],`${st.name} AM-only ${c.checked?"on":"off"}`)});
+  el.querySelectorAll("[data-amuntil]").forEach(c=>c.onchange=async()=>{const st=S.staff.find(x=>x.name===c.dataset.amuntil);st.amOnlyUntil=c.value||"";await put("staff",st);
+    await log(`Staff & Roles: ${st.name} AM only ${c.value?"until "+monthLabel(c.value):"with no end date"}`);await syncRoster([st.name],`${st.name} AM only ${c.value?"until "+monthLabel(c.value):"(no end date)"}`)});
+  el.querySelectorAll("[data-lead]").forEach(c=>c.onchange=async()=>{const st=S.staff.find(x=>x.name===c.dataset.lead);st.weekendLead=c.checked;await put("staff",st);await log(`Staff & Roles: ${st.name} weekend lead ${c.checked?"on":"off"}`);await syncRoster([st.name],`${st.name} weekend lead ${c.checked?"on":"off"}`)});
+  el.querySelectorAll("[data-act]").forEach(c=>c.onchange=async()=>{const st=S.staff.find(x=>x.name===c.dataset.act);st.active=c.checked;await put("staff",st);await log(`Staff & Roles: ${st.name} ${c.checked?"activated":"deactivated"}`);await syncRoster([st.name],`${st.name} ${c.checked?"activated":"deactivated"}`)});
+  el.querySelectorAll("[data-delstaff]").forEach(b=>b.onclick=async()=>{const n=b.dataset.delstaff;if(!confirm(`Remove ${n} from the staff list? Past published rosters keep their rows.`))return;await del("staff",n);S.staff=S.staff.filter(x=>x.name!==n);await log(`${n} removed`);await autoPopulateFrom(cur,`${n} removed`)});
+  $("#nsAdd").onclick=async()=>{const name=$("#nsName").value.trim();if(!name)return;if(S.staff.some(x=>x.name===name)){toast("Name already exists");return}
+    const st={name,dept:$("#nsDept").value.trim(),amOnly:$("#nsAM").checked,active:true,order:S.staff.length};await put("staff",st);S.staff.push(st);await log(`${name} added`);await autoPopulateFrom(cur,`${name} added`)};
+}
+/* ===================== RENDER: LEAVE ===================== */
+function renderLeave(){const el=$("#t-leave");
+  const rows=S.leave.slice().sort((a,b)=>a.from.localeCompare(b.from)).map(l=>`<tr><td>${esc(l.name)}</td><td>${l.from}</td><td>${l.to}</td><td>${esc(l.type||"")}</td><td><button class="btn danger" data-dl="${l.id}">Delete</button></td></tr>`).join("");
+  el.innerHTML=`<div class="panel"><b>Add leave / holiday</b><div class="row" style="margin-top:6px">
+    <select id="lvN">${S.staff.map(s=>`<option>${esc(s.name)}</option>`).join("")}</select>
+    <label>From <input type="date" id="lvF"></label><label>To <input type="date" id="lvT"></label>
+    <select id="lvType"><option>Holiday</option><option>Annual leave</option><option>Sick leave</option><option>Training</option><option>Symposium</option></select>
+    <button class="btn" id="lvAdd">Add &amp; re-populate</button></div>
+    <div class="muted" style="margin-top:6px">Leave days show as LV. They earn no days off — entitlement only counts weekend/holiday days outside leave. Staff on leave all month sit out the rotation.</div></div>
+    <div class="panel" style="overflow:auto"><table class="list"><thead><tr><th>Staff</th><th>From</th><th>To</th><th>Type</th><th></th></tr></thead><tbody>${rows||"<tr><td colspan=5 class='muted'>No leave recorded</td></tr>"}</tbody></table></div>
+    <div class="panel" style="overflow:auto"><b>⚖ Annual leave taken (working days, Mon–Fri excl. public holidays)</b> <span class="muted">Employment Act s.29 / PSSM — entitlement set to ${S.settings.annualLeaveDays} days a year (Rules &amp; Settings)</span>
+    ${(()=>{const hs=holidaySet(),tot={};for(const l of S.leave){if(l.type!=="Annual leave")continue;for(let d=new Date(l.from+"T00:00");d<=new Date(l.to+"T00:00");d.setDate(d.getDate()+1)){const w=d.getDay();const ds=d.toISOString().slice(0,10);
+        const ds2=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;if(w===0||w===6||hs.has(ds2))continue;const k=l.name+"|"+d.getFullYear();tot[k]=(tot[k]||0)+1}}
+      const ks=Object.keys(tot).sort();if(!ks.length)return `<div class="muted" style="margin-top:6px">No annual leave recorded (only entries typed "Annual leave" count).</div>`;
+      return `<table class="list" style="margin-top:6px"><thead><tr><th>Staff</th><th>Year</th><th>Days taken</th><th>Status</th></tr></thead><tbody>${ks.map(k=>{const [n,y]=k.split("|");const over=tot[k]>S.settings.annualLeaveDays;
+        return `<tr><td>${esc(n)}</td><td>${y}</td><td>${tot[k]}</td><td style="color:${over?"var(--bad)":"var(--ok)"}">${over?"Above entitlement – check approval / balance":"Within entitlement"}</td></tr>`}).join("")}</tbody></table>`})()}</div>`;
+  $("#lvAdd").onclick=async()=>{const l={name:$("#lvN").value,from:$("#lvF").value,to:$("#lvT").value,type:$("#lvType").value};
+    if(!l.from||!l.to||l.to<l.from){toast("Enter a valid date range");return}
+    const id=await tx("leave","readwrite",s=>s.add(l));l.id=id;S.leave.push(l);await log(`Leave added: ${l.name} ${l.from} → ${l.to}`);await autoPopulateFrom(l.from.slice(0,7),`leave added for ${l.name}`);renderLeave()};
+  el.querySelectorAll("[data-dl]").forEach(b=>b.onclick=async()=>{const id=+b.dataset.dl;const l=S.leave.find(x=>x.id===id);await del("leave",id);S.leave=S.leave.filter(x=>x.id!==id);await log(`Leave removed: ${l.name} ${l.from} → ${l.to}`);await autoPopulateFrom(l.from.slice(0,7),`leave removed for ${l.name}`);renderLeave()});
+}
+/* ===================== RENDER: HOLIDAYS ===================== */
+function renderHolidays(){const el=$("#t-holidays");
+  el.innerHTML=`<div class="panel"><b>Public holidays</b> <span class="muted">Confirm each year against the Government gazette (holidays falling on a weekend may move).</span>
+   <div class="row" style="margin-top:6px"><input type="date" id="hD"><input id="hN" placeholder="Holiday name"><button class="btn" id="hAdd">Add &amp; re-populate</button></div></div>
+   <div class="panel" style="overflow:auto"><table class="list"><thead><tr><th>Date</th><th>Day</th><th>Holiday</th><th></th></tr></thead><tbody>
+   ${S.holidays.map(h=>`<tr><td>${h.date}</td><td>${DOW[new Date(h.date+"T00:00").getDay()]}</td><td>${esc(h.name)}</td><td><button class="btn danger" data-dh="${h.date}">Delete</button></td></tr>`).join("")}</tbody></table></div>`;
+  $("#hAdd").onclick=async()=>{const h={date:$("#hD").value,name:$("#hN").value.trim()||"Public holiday"};if(!h.date)return;await put("holidays",h);S.holidays=S.holidays.filter(x=>x.date!==h.date).concat(h).sort((a,b)=>a.date.localeCompare(b.date));await log(`Holiday added ${h.date} ${h.name}`);await autoPopulateFrom(h.date.slice(0,7),"holiday added");renderHolidays()};
+  el.querySelectorAll("[data-dh]").forEach(b=>b.onclick=async()=>{const d=b.dataset.dh;await del("holidays",d);S.holidays=S.holidays.filter(x=>x.date!==d);await log(`Holiday removed ${d}`);await autoPopulateFrom(d.slice(0,7),"holiday removed");renderHolidays()});
+}
+/* ===================== RENDER: RULES ===================== */
+function renderRules(){const el=$("#t-rules"),s=S.settings;
+  const f=(k,l,min,max)=>`<label style="display:flex;justify-content:space-between;gap:10px;padding:4px 0">${l}<input type="number" data-k="${k}" value="${s[k]}" min="${min}" max="${max}" style="width:80px"></label>`;
+  el.innerHTML=`<div class="panel"><b>Roster rules</b> <span class="muted">(enforced every time a roster is generated or re-populated)</span>
+  <table class="list" style="margin-top:8px"><tbody>
+  <tr><th>Shifts</th><td>AM 0800–1700 · PM 1500–2300. No night shift.</td></tr>
+  <tr><th>On-calls</th><td>Only staff working AM that day can be on-call 2300–0800 (AM/OC). No OFF/OC or HO/OC.</td></tr>
+  <tr><th>Who goes on shifts and on-calls</th><td>Each month a person is in ONE group: PM Shifts (no on-call) or On-call (AM + on-call, no PM).</td></tr>
+  <tr><th>Monthly rotation</th><td><b>Strict:</b> an officer on AM this month is automatically on PM next month, and an officer on PM this month is automatically on AM next month. Nobody can do AM two months running or PM two months running — the app blocks it on Staff &amp; Roles, on the roster, when a month is saved, published or restored from a backup, and marks any breach in red. This shares shift duties evenly. "AM only (this month)" counts as an AM month. Months fully on leave are skipped. AM-only staff (${S.staff.filter(x=>x.amOnly).map(x=>esc(x.name)+(x.amOnlyUntil?" until "+monthLabel(x.amOnlyUntil):"")).join(", ")||"none"}) stay on AM until they are eligible. Last month's on-call group does PM this month; last month's PM group does on-call. Staff with no group last month are balanced between the two.</td></tr>
+  <tr><th>AM only</th><td>Staff ticked "AM only" never do PM or on-call (currently: ${S.staff.filter(x=>x.amOnly).map(x=>esc(x.name)).join(", ")||"none"}).</td></tr>
+  <tr><th>Weekend AM pairing</th><td>Every Saturday, Sunday and public holiday the ${s.weekendAM} AM staff are <b>one weekend lead</b> (${S.staff.filter(x=>x.weekendLead).map(x=>esc(x.name)).join(", ")||"none set"}) <b>plus one other officer</b>. Weekend leads share these days evenly among themselves. Change who is a weekend lead on Staff &amp; Roles.</td></tr>
+  <tr><th>Daily cover</th><td>1 PM + 1 on-call every day; weekends/holidays ${s.weekendAM} AM (one is the on-call officer); weekdays ≥ ${s.minAM} AM (auto-relaxed by up to ${s.relaxSteps} only when leave makes it impossible — the month shows the floor used).</td></tr>
+  <tr><th>Days off</th><td>Weekend + holiday days (outside leave) + ${s.pmExtraOff} per PM block. Weekend work is given back as weekday days off. On-call earns no extra days off. Leave days earn none.</td></tr>
+  <tr><th>PM pattern</th><td><b>${PATTERN_LABEL[s.pmPattern]}</b> — ${s.pmPattern==="mixed"?`each PM block (2–3 PM) is followed by ${s.restMixed} days off`:s.pmPattern==="2"?`2 PM then ${s.rest2} days off (one 3-day block when the month has an odd number of days, followed by ${s.rest3} days off)`:`3 PM then ${s.rest3} days off (one or two 2-day blocks when the month length needs it, followed by ${s.rest2} days off)`}. Applies across the month boundary.</td></tr>
+  <tr><th>Working week</th><td><b>${s.pssmWeekHours} hours a week</b> for every officer: ${Math.round(s.pssmWeekHours/s.hoursAM)} shifts of ${s.hoursAM} h in each Monday–Sunday week. The app never rosters more than ${wkCapH(s)} h in a week (a manual change that does is marked in red as a rule breach) and keeps weeks below ${s.pssmWeekHours} h to a minimum. Leave and public holidays on a Monday–Friday count as ${s.hoursAM} h. A shorter week only happens for days off after PM shifts or time off given for weekend/holiday duty.</td></tr>
+  <tr><th>Overtime</th><td><b>No unnecessary overtime claims by a single officer.</b> No overtime is rostered: nobody is put above ${s.pssmWeekHours} h in a week. Duties that can be claimed (Sunday/public-holiday work, PM hours after 20:00) are shared evenly among officers on the same duties. An officer more than ${s.otGap??8} h above the peer average is reported in the rule check and in red in the labour-law table.</td></tr>
+  <tr><th>Max days in a row</th><td>${s.maxRun}</td></tr>
+  <tr><th>On-call spacing</th><td>At least ${s.ocSpacing} days between a person's on-calls.</td></tr>
+  <tr><th>Fairness</th><td>PM load, on-calls and weekend/holiday duties spread as evenly as possible within each group; paired days off preferred. Best of ${s.attempts} candidate rosters is kept.</td></tr>
+  <tr><th>⚖ Labour law</th><td>${s.legalOn?"<b>ON</b>":"<b style='color:var(--bad)'>OFF</b>"} — every roster is checked and built so it does not breach the <b>Employment Act [Cap 160]</b>:
+    <ul style="margin:4px 0 0;padding-left:18px">
+    <li><b>s.22(1)</b> – max ${s.maxWeekHours} hours and ${s.maxWeekDays} days in any week; max ${s.maxDayHours} hours a day (meal and tea breaks excluded).</li>
+    <li><b>s.25</b> – a weekly rest of 24 consecutive hours (at least one full day off every Monday–Sunday week).</li>
+    <li><b>s.23</b> – hospital work on Sundays and public holidays is allowed (s.23(2)(e)) but an equivalent period of time off must be given (s.23(3)) – checked through the days-off entitlement.</li>
+    <li><b>s.26</b> – Sunday/holiday and night (8 pm–4 am) hours are reported for overtime / unsocial-hours claims.</li>
+    <li><b>s.35</b> – night work by women is permitted for health and pharmacy work (s.35(1)(d)), so PM and on-call duties are lawful for all officers.</li>
+    <li><b>s.29</b> – annual leave taken is totalled per officer per year on the Leave page (minimum ${s.annualLeaveDays} working days a year after 12 months' service).</li>
+    <li><b>PSSM</b> (Public Service Staff Manual, Ch. 4 – Hours of Work s.3; Overtime / time off in lieu s.4.1; PSC Form 4.1): normal week set to ${s.pssmWeekHours} h (the 40-hour week rule above); hours above it are reported as overtime estimates. Confirm these values against the current PSSM and enter them below.</li></ul></td></tr>
+  <tr><th>Roster changes</th><td>When any cell is changed, that change is kept as a fixed point and the entire schedule is re-built around it automatically — the rest of that month and every later draft month (rest days, cover, days off, rotation and fairness are re-balanced). A PM entered for an on-call officer moves them to the PM group for that month, and vice versa.</td></tr>
+  <tr><th>Automation</th><td>On or after the ${s.autoDay}th of each month, next month's roster is generated automatically when this page is open (checked on load and every hour). Allocating a role, AM-only, leave or holiday re-populates draft months straight away.</td></tr>
+  </tbody></table></div>
+  <div class="panel" style="max-width:520px"><b>Settings</b>
+  ${f("minAM","Weekday minimum AM staff",1,40)}${f("weekendAM","Weekend/holiday AM staff (incl. on-call)",1,10)}${f("maxRun","Max days worked in a row",3,10)}
+  <label style="display:flex;justify-content:space-between;gap:10px;padding:4px 0">PM shift pattern<select data-ks="pmPattern">${Object.entries(PATTERN_LABEL).map(([v,l])=>`<option value="${v}" ${String(s.pmPattern)===v?"selected":""}>${l}</option>`).join("")}</select></label>
+  ${f("rest2","Days off after 2 consecutive PM",1,5)}${f("rest3","Days off after 3 consecutive PM",1,5)}${f("restMixed","Days off after a PM block (mixed pattern)",1,5)}
+  ${f("pmExtraOff","Extra days off earned per PM block",0,3)}
+  <div style="margin-top:10px"><b>⚖ Labour law (Employment Act Cap 160 / PSSM)</b></div>
+  <label style="display:flex;justify-content:space-between;gap:10px;padding:4px 0">Labour-law checks<select data-k2="legalOn"><option value="1" ${s.legalOn?"selected":""}>On (recommended)</option><option value="0" ${!s.legalOn?"selected":""}>Off</option></select></label>
+  ${f("maxWeekHours","Max hours in any week (Act s.22(1))",1,80)}${f("maxWeekDays","Max days worked in any week (Act s.22(1))",1,7)}${f("maxDayHours","Max hours in a day (Act s.22(1))",1,16)}
+  ${f("hoursAM","Hours credited for AM (excl. meal break)",1,12)}${f("hoursPM","Hours credited for PM (excl. meal break)",1,12)}${f("hoursOC","Hours credited per on-call night (if not called in)",0,12)}
+  ${f("pssmWeekHours","Working week: hours per officer (general rule 40)",8,60)}${f("otGap","Overtime: max claim hours one officer may be above peers",0,80)}${f("annualLeaveDays","Annual leave days per year (Act s.29 / PSSM)",1,60)}
+  ${f("ocSpacing","Min days between on-calls",1,7)}${f("autoDay","Auto-generate next month on day",1,28)}${f("attempts","Candidate rosters per run (fairness search)",20,2000)}
+  <div class="row" style="margin-top:8px"><button class="btn" id="saveSet">Save settings</button><button class="btn ghost" id="saveRe">Save &amp; re-populate draft months</button></div></div>`;
+  const read=()=>{el.querySelectorAll("[data-k]").forEach(i=>S.settings[i.dataset.k]=+i.value);el.querySelectorAll("[data-ks]").forEach(i=>S.settings[i.dataset.ks]=i.value);el.querySelectorAll("[data-k2]").forEach(i=>S.settings[i.dataset.k2]=+i.value)};
+  $("#saveSet").onclick=async()=>{read();await put("settings",{key:"settings",value:S.settings});await log("Settings changed");toast("Settings saved");renderRules()};
+  $("#saveRe").onclick=async()=>{read();await put("settings",{key:"settings",value:S.settings});await log("Settings changed");const k=Object.keys(S.rosters).sort().find(k=>S.rosters[k].status!=="published");if(k)await autoPopulateFrom(k,"rules changed");renderRules()};
+}
+/* ===================== RENDER: STORAGE ===================== */
+async function renderUsers(host){
+  const [u,p]=await Promise.all([sb.from("allowed_users").select("*").order("created_at"),sb.from("role_permissions").select("*")]);
+  if(u.error){host.innerHTML=`<span class="muted">${esc(u.error.message)}</span>`;return}
+  const opt=r=>ROLES.map(x=>`<option${x===r?" selected":""}>${x}</option>`).join("");
+  const perms=ROLES.map(r=>(p.data||[]).find(x=>x.role===r)||{role:r});
+  host.innerHTML=`<b>Users &amp; roles</b> <span class="muted">Add a person's email here. They then open the app and select Create account with that email.</span>
+  <table style="width:100%;border-collapse:collapse;margin:8px 0"><tr class="muted" style="text-align:left"><th>Email</th><th>Name</th><th>Role</th><th></th></tr>
+  ${u.data.map(x=>`<tr><td>${esc(x.email)}</td><td>${esc(x.full_name||"")}</td><td><select data-ur="${esc(x.email)}">${opt(x.role)}</select></td><td><button class="btn danger" data-ud="${esc(x.email)}">Remove</button></td></tr>`).join("")}</table>
+  <form id="userAdd" class="row"><input type="email" id="uaE" placeholder="email" required><input id="uaN" placeholder="full name"><select id="uaR">${opt("Trainee")}</select><button class="btn" type="submit">Add user</button></form>
+  <div style="margin-top:12px"><b>What each role can do</b></div>
+  <table style="border-collapse:collapse;margin-top:6px"><tr class="muted" style="text-align:left"><th style="padding-right:18px">Role</th><th style="padding-right:18px">Edit roster</th><th>Manage users</th></tr>
+  ${perms.map(x=>`<tr><td>${x.role}</td><td><input type="checkbox" data-pe="${x.role}" ${x.can_edit?"checked":""} ${x.role==="Admin"?"disabled":""}></td><td><input type="checkbox" data-pm="${x.role}" ${x.can_manage_users?"checked":""} ${x.role==="Admin"?"disabled":""}></td></tr>`).join("")}</table>`;
+  const done=async(r,m)=>{if(r.error)toast(r.error.message);else{toast(m);renderUsers(host)}};
+  host.querySelectorAll("[data-ur]").forEach(s=>s.onchange=async()=>{if(s.dataset.ur===ME.email&&s.value!=="Admin"){toast("You cannot remove your own Admin role.");renderUsers(host);return}
+    done(await sb.from("allowed_users").update({role:s.value}).eq("email",s.dataset.ur),"Role updated");await log(`Role of ${s.dataset.ur} set to ${s.value}`)});
+  host.querySelectorAll("[data-ud]").forEach(b=>b.onclick=async()=>{const e=b.dataset.ud;if(e===ME.email){toast("You cannot remove yourself.");return}
+    if(!confirm(`Remove ${e}?`))return;done(await sb.from("allowed_users").delete().eq("email",e),"User removed");await log(`User removed: ${e}`)});
+  host.querySelector("#userAdd").onsubmit=async ev=>{ev.preventDefault();const e=host.querySelector("#uaE").value.trim().toLowerCase();
+    done(await sb.from("allowed_users").insert({email:e,full_name:host.querySelector("#uaN").value.trim()||null,role:host.querySelector("#uaR").value}),"User added");await log(`User added: ${e}`)};
+  host.querySelectorAll("[data-pe]").forEach(c=>c.onchange=async()=>done(await sb.from("role_permissions").update({can_edit:c.checked}).eq("role",c.dataset.pe),"Saved"));
+  host.querySelectorAll("[data-pm]").forEach(c=>c.onchange=async()=>done(await sb.from("role_permissions").update({can_manage_users:c.checked}).eq("role",c.dataset.pm),"Saved"));
+}
+async function renderData(){const el=$("#t-data");
+  let est={usage:0,quota:0},persisted=false;try{if(navigator.storage&&navigator.storage.estimate)est=await navigator.storage.estimate();if(navigator.storage&&navigator.storage.persisted)persisted=await navigator.storage.persisted()}catch(e){}
+  const gb=b=>(b/1024**3).toFixed(2)+" GB",mb=b=>(b/1024**2).toFixed(2)+" MB";
+  const pct=est.quota?Math.min(100,est.quota/TARGET_BYTES*100):0;
+  const logs=(await getAll("log")).slice(-60).reverse();
+  el.innerHTML=`<div class="panel"><b>Account</b> <span class="muted">Signed in as <b>${esc(ME.email)}</b> · role <b>${esc(ME.role)}</b></span>
+    <form id="pwForm" autocomplete="off"><div class="authgrid">
+      <label>New password (8 or more)<input type="password" id="pwNew" autocomplete="new-password" minlength="8" required></label>
+      <label>Repeat new password<input type="password" id="pwNew2" autocomplete="new-password" minlength="8" required></label></div>
+    <div class="row" style="margin-top:8px"><button class="btn" type="submit">Change password</button></div></form></div>
+    <div class="panel" id="usersPanel"></div>
+    <div class="panel"><b>Backup &amp; restore</b><div class="row" style="margin-top:6px"><button class="btn" id="exp">Export backup (.json)</button>
+    <label class="btn ghost">Import backup<input type="file" id="imp" accept=".json" hidden></label><button class="btn danger" id="reset">Reset to starting data</button></div>
+    <div class="muted" style="margin-top:6px">Data is stored in Supabase and shared by everyone who signs in. Export a backup regularly and keep a copy on the shared drive.</div></div>
+    <div class="panel"><b>Activity log</b><ul class="issues">${logs.map(l=>`<li>${new Date(l.ts).toLocaleString()} — ${esc(l.msg)}</li>`).join("")}</ul></div>`;
+  $("#pwForm").onsubmit=async e=>{e.preventDefault();const p=$("#pwNew").value;
+    if(p.length<8){toast("Password must be 8 characters or more.");return}
+    if(p!==$("#pwNew2").value){toast("The two passwords do not match.");return}
+    const r=await sb.auth.updateUser({password:p});toast(r.error?r.error.message:"Password changed.");if(!r.error)$("#pwForm").reset()};
+  if(ME.canManage)renderUsers($("#usersPanel"));else $("#usersPanel").remove();
+  $("#exp").onclick=async()=>{const out={app:"VNH Lab Roster",exported:new Date().toISOString()};for(const s of ["staff","leave","holidays","rosters","roles","settings","log"])out[s]=await getAll(s);
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:"application/json"}));a.download=`VNH_Roster_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();await log("Backup exported")};
+  $("#imp").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!d.staff||!d.rosters)throw 0;
+    if(!confirm("Replace all data with the backup?"))return;
+    for(const s of ["staff","leave","holidays","rosters","roles","settings","log"]){await clearStore(s);for(const v of d[s]||[])await put(s,v)}
+    await loadAll();await log("Backup imported");
+    {const ks=Object.keys(S.rosters).sort(),k=ks.find(k=>S.rosters[k].status!=="published"&&altBreaches(S.rosters[k]).length);
+     if(k){await log(`Backup had the same shift group two months running in ${monthLabel(k)}: draft months re-built`);await autoPopulateFrom(k,"alternation rule applied to imported backup")}
+     const pb=ks.filter(k=>S.rosters[k].status==="published"&&altBreaches(S.rosters[k]).length);
+     toast(pb.length?`Backup restored. Check ${pb.map(monthLabel).join(", ")}: published with the same group two months running.`:"Backup restored")}
+    render()}catch(err){toast("Not a valid backup file")}};
+  $("#reset").onclick=async()=>{if(!confirm("Erase everything and reload the starting data?"))return;await seedIfEmpty(true);await loadAll();S.view.month=null;render();toast("Reset done")};
+}
+
+/* ===================== HELP / SOP ===================== */
+const HELP=[
+{t:"1. Purpose & scope",b:`<ul><li>Builds the monthly Laboratory Services staff roster: AM, PM and home on-call.</li><li>Applies the same rules every month, so every officer is treated fairly.</li><li>Users: Senior Laboratory Officer / roster officer. Approver: Laboratory Manager.</li><li>Data is stored securely in Supabase. Everyone signs in with their own email; the Admin gives each person a role.</li></ul>`},
+{t:"2. Getting started (first use)",b:`<ol><li>Copy <b>VNH_Lab_Roster_App.html</b> to a fixed folder (e.g. Documents\\Roster). Do not rename or move it afterwards.</li><li>Open it in <b>Google Chrome or Microsoft Edge</b>. Do not use a private/incognito window.</li><li>First opening loads: November 2026 (original), December 2026 and January 2027.</li><li>Go to <b>Storage &amp; Backup → Request persistent storage</b> so the browser does not clear the data.</li><li>Bookmark the page. Always open the same file in the same browser.</li></ol>`},
+{t:"3. Reading the roster screen",b:`<ul><li><b>AM</b> – Morning shift 0800–1700.</li><li><b>PM</b> – Afternoon shift 1500–2300.</li><li><b>AM/OC</b> – Works AM, then home on-call 2300–0800.</li><li><b>OFF</b> – Day off. <b>HO</b> – Public holiday off. <b>LV</b> – Leave / holiday.</li><li><b>Group</b> column – PM, On-call, AM only or Leave for that month.</li><li>Yellow columns at the right: Off, Entitled, ± (difference), AM, PM, OC, Weekend shifts, Leave days.</li><li>Bottom rows: AM staff, PM cover, On-call cover for each day.</li><li><b>Red outline / red cell</b> = a rule is broken. <b>Purple border</b> = manual change.</li><li>Rule check box under the grid lists every problem in plain words.</li></ul>`},
+{t:"4. Monthly roster SOP (step by step)",b:`<ol><li><b>By the 15th:</b> enter all leave, training and symposium dates for next month (Leave tab).</li><li><b>Check holidays</b> for next month (Holidays tab).</li><li><b>Check roles</b> for next month (Staff &amp; Roles tab): AM-only staff, new staff, inactive staff.</li><li><b>On/after the 20th:</b> open the app. Next month is created automatically. (Or press <b>Generate next month</b>.)</li><li><b>Review:</b> Rule breaches must be <b>0</b>. Days-off mismatches should be 0.</li><li><b>Adjust</b> any cell if needed (see section 7). The schedule re-builds itself around your change.</li><li><b>Approve:</b> show the draft to the Laboratory Manager.</li><li><b>Publish &amp; lock</b> the month. A locked month never changes automatically.</li><li><b>Export Excel (this month)</b> and/or <b>Print / PDF</b>. Post on the notice board and email to staff.</li><li><b>Export backup</b> (Storage &amp; Backup) and save it to the shared drive.</li></ol>`},
+{t:"5. Allocating roles (Staff & Roles)",b:`<ul><li>Choose the month at the top (<b>Role allocation for</b>).</li><li><b>Auto (rotation)</b> – recommended. AM + on-call this month → PM next month; PM this month → AM + on-call next month. This is <b>compulsory</b>: the same group two months running is blocked (AM then AM, or PM then PM). The roster cannot be saved or published with a breach.</li><li><b>AM only (this month)</b> counts as an AM month: not allowed straight after an AM month, and the next month is PM.</li><li>The column for next month shows each officer's automatic group.</li><li><b>AM only until</b> – for AM-only staff (Evaneth Banga, Devlyn Ala) enter the month they become eligible; from then they join the rotation.</li><li><b>PM Shifts / On-call / AM only</b> – forces that role for the chosen month only.</li><li><b>AM only</b> tick box – permanent: the officer never does PM or on-call (e.g. Evaneth Banga, Devlyn Ala).</li><li><b>Weekend lead</b> tick box – one weekend lead works AM on every Saturday, Sunday and public holiday, paired with another officer.</li><li><b>Active</b> tick box – untick when an officer leaves the section.</li><li><b>Add staff</b> – name, department, AM-only option.</li><li>Every change in the <b>Role</b> column (and AM only / Active) is <b>applied to the Roster page automatically</b> – that month and all later draft months are re-built at once.</li><li>A message appears with <b>View on Roster</b>; the updated officer is marked <b>★</b> and their group shows <b>✎</b>.</li><li>If the month is published, you are asked to unlock it first (Cancel keeps the published roster).</li><li>A role set here always wins over a conflicting manual cell change (that cell change is removed).</li><li>Hover over an officer's group on the roster to see <i>why</i> they are in it.</li></ul>`},
+{t:"6. Recording leave",b:`<ol><li>Leave tab → choose officer → From and To dates → type.</li><li>Press <b>Add &amp; re-populate</b>. The roster re-builds at once.</li><li>Leave days show as <b>LV</b>. They earn no days off.</li><li>Officer on leave the whole month = group <b>Leave</b>; they join the rotation again the next month.</li><li>To cancel leave: press <b>Delete</b> on that line.</li></ol>`},
+{t:"7. Changing the roster by hand",b:`<ul><li>Click any cell → pick AM, PM, AM/OC, OFF, HO or LV.</li><li>Your change is <b>kept</b> (purple border) as a fixed point.</li><li>The <b>entire schedule re-adjusts automatically</b>: rest of the month and every later draft month (cover, rest days, days off, rotation, fairness).</li><li>PM entered for an on-call officer moves them to the PM group for that month (and vice versa).</li><li>Undo one change: click the cell → <b>Remove manual change</b>.</li><li>Undo all: <b>Clear manual changes</b> button.</li><li>Published months cannot be edited – press <b>Unlock</b> first.</li></ul>`},
+{t:"8. PM shift pattern (2 or 3 consecutive days)",b:`<ul><li>Choose on the roster toolbar (<b>PM pattern</b>) or in Rules &amp; Settings.</li><li><b>2 consecutive PM days</b> → followed by <b>2 days off</b> (default; editable).</li><li><b>3 consecutive PM days</b> → followed by <b>3 days off</b> (default; editable).</li><li><b>Mixed 2 or 3</b> → each block followed by 2 days off (default; editable).</li><li>If the month length does not divide evenly, one block uses the other length, with its own days off.</li><li>Changing the pattern re-populates all draft months from the month shown.</li></ul>`},
+{t:"9. Rules the app enforces",b:`<ul><li>1 PM and 1 on-call every day.</li><li>Weekends / holidays: 2 AM staff (one is the on-call officer). One of the two must be a <b>weekend lead</b> (Eddie Mansing, Justina Gaviga, Anndona Bani, Shirley Iercet, Rina Morrison) and the other any other officer.</li><li>Weekdays: at least the minimum AM staff (default 17). If leave makes this impossible the app lowers it and shows the floor used.</li><li>On-call only on an AM day. No OFF/OC, no HO/OC. No night shift.</li><li>One group per officer per month: PM <i>or</i> AM + on-call, and it <b>alternates every month</b> (never the same group two months running).</li><li>Days off = weekend + holiday days (outside leave) + 1 per PM block. On-call earns no extra days.</li><li>Rest after every PM block (see section 8), including across the month change.</li><li>Maximum 5 days worked in a row. On-calls at least 3 days apart.</li><li>Fairness: PM, on-call and weekend duty spread evenly; paired days off preferred.</li><li><b>Labour law</b> (Employment Act Cap 160 &amp; PSSM) – see section 17. These limits always win over fairness and the days-off count.</li></ul>`},
+{t:"10. Automatic generation (20th of the month)",b:`<ul><li>On or after the <b>20th</b>, next month's roster is created automatically.</li><li>It happens when the page is <b>open</b> – on opening and every hour after.</li><li>The page cannot run while closed. Open it at least once between the 20th and month end.</li><li>Header line shows the next auto-generation status.</li><li>Change the day in Rules &amp; Settings (<b>Auto-generate next month on day</b>).</li></ul>`},
+{t:"11. Exporting & printing",b:`<ul><li><b>Export Excel (this month)</b> – real .xlsx, <b>landscape</b>, A4, fits one page, coloured exactly as on screen (purple = manual change, red = rule broken).</li><li><b>Export Excel (all months)</b> – one sheet per month in one file.</li><li><b>Print / PDF (landscape)</b> – opens the print window. Choose <b>Save as PDF</b> or a printer. Tick <b>Background graphics</b> if colours do not show.</li><li><b>CSV</b> – plain data for other systems (no colours).</li></ul>`},
+{t:"12. Publishing & locking",b:`<ul><li><b>Publish &amp; lock</b> after the Manager approves. This also returns the whole app to <b>read-only</b>: every other button and tab is deactivated until someone selects <b>Unlock</b> and logs in.</li><li>To export or print the published roster, unlock again first.</li><li>Locked months are never re-populated (role, leave, rule or pattern changes skip them).</li><li><b>Unlock (back to draft)</b> to make late changes, then publish again and re-issue.</li><li>Later draft months still follow on from the locked month correctly.</li></ul>`},
+{t:"13. Rules & Settings",b:`<ul><li>Weekday minimum AM staff, weekend AM staff, max days in a row.</li><li>PM pattern and days off after 2-day / 3-day / mixed blocks.</li><li>Extra days off earned per PM block, on-call spacing, auto-generation day.</li><li><b>Candidate rosters per run</b> – higher = fairer but slower (default 250).</li><li><b>Save &amp; re-populate draft months</b> applies new rules at once.</li></ul>`},
+{t:"14. Storage, backup & restore",b:`<ul><li>Target capacity 40 GB; the browser sets the real limit (shown on Storage &amp; Backup). One year of rosters uses less than 1 MB.</li><li><b>Export backup (.json)</b> weekly and after every publish. Save to the shared drive.</li><li><b>Import backup</b> to move to a new computer or recover data.</li><li><b>Reset to starting data</b> erases everything – use only on instruction.</li><li>Activity log records every change with date and time.</li></ul>`},
+{t:"15. Troubleshooting / FAQ",b:`<ul><li><b>Roster disappeared</b> – wrong browser, private window, or browser data cleared. Import the latest backup.</li><li><b>Red cells after my change</b> – the change breaks a rule the app cannot work around. Remove it or change a neighbouring cell.</li><li><b>Weekday AM floor lower than 17</b> – too many staff on leave; consider fewer leave days or an AM-only officer covering.</li><li><b>Next month not created</b> – open the page on/after the 20th, or press Generate next month.</li><li><b>Print has no colours</b> – tick Background graphics in the print window.</li><li><b>Excel warns about the file</b> – choose Yes/Enable; the file is created on this computer.</li><li><b>Someone's days off look wrong</b> – check the ± column and the Rule check list.</li></ul>`},
+{t:"17. Labour law compliance (Employment Act Cap 160 & PSSM)",b:`<ul>
+<li><b>Built in:</b> every generated, re-populated or edited roster is checked against the law. Breaches show as <b>⚖</b> lines in red and in the <b>Labour-law breaches</b> box (must be <b>0</b> before publishing).</li>
+<li><b>s.22(1) hours</b> – max <b>44 hours</b> and <b>6 days</b> in any week; max <b>8 hours</b> a day (meal/tea breaks excluded). Weeks = Monday–Sunday, including days from the end of last month.</li>
+<li><b>s.25 weekly rest</b> – at least 24 consecutive hours off every week.</li>
+<li><b>s.23 Sundays &amp; public holidays</b> – hospital work allowed (s.23(2)(e)); <b>equivalent time off</b> must be given (s.23(3)). Shown as "✔ time off given" in the compliance table.</li>
+<li><b>s.26 overtime</b> – Sunday/holiday 1.5×; overtime 1.25× (first 4 h) then 1.5×; night 8 pm–4 am beyond normal hours 1.75×. The compliance table lists Sunday/holiday days, unsocial hours and hours above the PSSM normal week for <b>PSC Form 4.1</b>.</li>
+<li><b>s.35 women at night</b> – allowed for health and pharmacy work (s.35(1)(d)).</li>
+<li><b>s.29 annual leave</b> – Leave page totals "Annual leave" days per officer per year against the entitlement setting.</li>
+<li><b>PSSM</b> – Chapter 4 (Hours of Work s.3; Overtime / time off in lieu s.4.1). Enter the PSSM normal week and leave entitlement in <b>Rules &amp; Settings</b>.</li>
+<li><b>Extra days off</b> – sometimes the app gives 1–2 more days off than the entitlement so a week stays within 44 hours (grey note in the rule check). This is lawful and expected.</li>
+<li><b>Manual changes</b> – if your change breaks the law the cell turns red; remove it or change a neighbouring day.</li>
+<li><b>Responsibility</b> – the app supports compliance; the Laboratory Manager / HR remain responsible. Check settings against the current Act, amendments and PSSM each year.</li></ul>`},
+{t:"18. Read-only mode & login",b:`<ul>
+<li>The app <b>always opens read-only</b>. The roster can be viewed but not changed.</li>
+<li>Locked on opening: Staff &amp; Roles, Leave, Holidays, Rules &amp; Settings, Storage &amp; Backup, Generate next month, Re-populate, Excel, All months, Print or PDF, CSV, PM pattern and Delete month. Roster and Help stay open.</li>
+<li>Select <b>Unlock</b> (top right, or on the roster toolbar) and enter the <b>username and password</b>. Everything becomes active.</li>
+<li>Unlock whenever the roster needs an edit or a new month must be generated. The automatic 20th-of-the-month build also waits for an unlock.</li>
+<li>Select <b>Lock</b> (top right) when finished. Closing or reloading the page also locks it.</li>
+<li>Change the username and password on <b>Storage &amp; Backup → Editor login</b>. Change the default password at first use.</li>
+<li>Five wrong attempts pause the login for 30 seconds. Unlocks, locks and failed attempts are written to the activity log.</li>
+<li><b>Unlock month</b> on the toolbar is different: it re-opens a <i>published</i> month for editing.</li></ul>`},
+{t:"19. 40-hour working week",b:`<ul>
+<li><b>General rule:</b> each officer works <b>40 hours a week</b> — 5 shifts of 8 hours in a Monday–Sunday week.</li>
+<li>The app <b>never rosters more than 40 hours</b> in a week. A manual change that pushes a week over 40 is marked in red and counted as a roster rule breach.</li>
+<li>It also keeps every week <b>as close to 40 as possible</b>. A shorter week only happens for days off after PM shifts or time off given for weekend/holiday duty.</li>
+<li>Leave and public holidays on a Monday–Friday count as 8 hours towards the 40.</li>
+<li>On-call from home counts 0 hours unless the on-call hours setting is changed.</li>
+<li>Check it on the Roster page: the <b>staff weeks at 40 h</b> tile, and the columns <b>Weeks at 40 h</b>, <b>Lowest week</b> and <b>Average hours / week</b> in the labour-law table.</li>
+<li>Change the figure on Rules &amp; Settings → <b>Working week: hours per officer</b>.</li></ul>`},
+{t:"20. Overtime claims",b:`<ul>
+<li><b>Rule:</b> avoid any unnecessary overtime claims by a single officer.</li>
+<li><b>No overtime is rostered.</b> Nobody is put above 40 hours in a week; a manual change that does is a rule breach (red).</li>
+<li><b>Claimable duties are shared.</b> Sunday/public-holiday work and PM hours after 20:00 are spread evenly, so one officer does not collect them.</li>
+<li><b>Peers</b> are officers on the same duties that month: PM group, AM + on-call group, AM only; weekend leads are compared with each other.</li>
+<li><b>Limit:</b> an officer more than 8 hours (one shift) above the peer average is reported in the Rule check and shown red in the labour-law table. Fix by swapping a Sunday/holiday or PM duty to an officer with fewer.</li>
+<li>Check it on the Roster page: the <b>overtime</b> tile and the columns <b>Overtime-claim hours</b> and <b>Against peers</b>.</li>
+<li>The hours are an <b>estimate for the roster</b>. Actual claims (PSC Form 4.1) depend on hours really worked and call-ins, and need the Manager's approval.</li>
+<li>Change the limit on Rules &amp; Settings → <b>Overtime: max claim hours one officer may be above peers</b>.</li></ul>`},
+{t:"16. Glossary",b:`<ul><li><b>Block</b> – PM days in a row by one officer.</li><li><b>Rotation</b> – PM ↔ on-call swap each month.</li><li><b>Fixed point / pin</b> – a manual change kept during re-population.</li><li><b>Draft</b> – can change automatically. <b>Published</b> – locked.</li><li><b>Entitled</b> – days off owed for the month.</li><li><b>Re-populate</b> – rebuild a month using the rules.</li><li><b>⚖</b> – labour-law check (Employment Act / PSSM).</li></ul>`}
+];
+function renderHelp(){const el=$("#t-help");const q=S.view.helpQ||"";
+  el.innerHTML=`<div class="panel"><div class="row"><b style="font-size:16px">Help — Standard Operating Procedure</b></div>
+   <div class="row" style="margin-top:8px"><input id="helpQ" type="search" placeholder="Search help (e.g. leave, export, PM pattern, 20th)…" value="${esc(q)}" style="flex:1;min-width:240px">
+   <span class="muted" id="helpCount"></span></div>
+   <div id="helpToc" class="row" style="margin-top:8px;font-size:12px"></div></div><div id="helpBody"></div>`;
+  const draw=()=>{const terms=$("#helpQ").value.trim().toLowerCase().split(/\s+/).filter(Boolean);S.view.helpQ=$("#helpQ").value;
+    const hits=HELP.filter(h=>{const txt=(h.t+" "+h.b.replace(/<[^>]+>/g," ")).toLowerCase();return terms.every(t=>txt.includes(t))});
+    const mark=html=>{if(!terms.length)return html;return html.replace(/(>|^)([^<]+)(?=<|$)/g,(m,a,txt)=>a+terms.reduce((s,t)=>s.replace(new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"gi"),x=>`<mark>${x}</mark>`),txt))};
+    $("#helpCount").textContent=terms.length?`${hits.length} of ${HELP.length} sections match`:`${HELP.length} sections`;
+    $("#helpToc").innerHTML=hits.map((h,i)=>`<a href="#h${HELP.indexOf(h)}" style="color:var(--brand2);margin-right:10px">${esc(h.t)}</a>`).join("");
+    $("#helpBody").innerHTML=hits.length?hits.map(h=>`<div class="panel help" id="h${HELP.indexOf(h)}"><b style="font-size:15px">${mark(esc(h.t))}</b><div>${mark(h.b)}</div></div>`).join("")
+      :`<div class="panel muted">No help found for "${esc($("#helpQ").value)}". Try another word, e.g. "leave", "export", "lock".</div>`;};
+  $("#helpQ").oninput=draw;draw();}
+
+/* ===================== BOOT ===================== */
+document.getElementById("tabs").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;switchTab(b.dataset.t)});
+(async()=>{try{poolInit();
+  sb.auth.onAuthStateChange(async ev=>{if(ev==="PASSWORD_RECOVERY"){const p=prompt("Enter a new password (8 or more characters)");if(p&&p.length>=8){const r=await sb.auth.updateUser({password:p});alert(r.error?r.error.message:"Password changed.")}}});
+  const {data:{session}}=await sb.auth.getSession();
+  if(session)await afterSignIn();else{document.getElementById("hdrStatus").textContent="Signed out";openLogin()}
+}catch(err){document.querySelector("main").innerHTML=`<div class="panel" style="color:var(--bad)">Could not reach the roster database: ${esc(err&&err.message||err)}.</div>`;console.error(err)}})();
+document.getElementById("lockBtn").onclick=()=>LOCKED?unlockNow():lockNow();
+document.getElementById("outBtn").onclick=signOut;
+document.getElementById("loginSignUp").onclick=signUp;
+document.getElementById("loginReset").onclick=resetPw;
+document.getElementById("loginForm").addEventListener("submit",tryLogin);
+document.getElementById("login").addEventListener("mousedown",e=>{if(e.target.id==="login")closeLogin()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeLogin()});
+/* rule-set upgrade re-builds draft months, so it waits until the app is unlocked */
+async function upgradeIfNeeded(){try{
+  if(S._needsUpgrade){S._needsUpgrade=false;await put("settings",{key:"settings",value:S.settings});
+    if(!S.staff.some(x=>x.weekendLead!==undefined))for(const st of S.staff){st.weekendLead=DEFAULT_WEEKEND_LEADS.includes(st.name);await put("staff",st)}
+    const ks=Object.keys(S.rosters).sort().filter(k=>k>=currentKey()&&S.rosters[k].status!=="published");
+    if(ks.length){const k0=ks[0],pv=S.rosters[addMonth(k0,-1)];
+      if(!(pv&&pv.groups&&Object.keys(pv.groups).length))for(const [n,g] of Object.entries(S.rosters[k0].groups||{}))if((g==="PM"||g==="OC")&&!S.roles[k0+"|"+n]){S.roles[k0+"|"+n]=g;await put("roles",{key:k0+"|"+n,role:g})}
+      await log("Roster rules updated (labour law, weekend AM pairing, strict AM/PM alternation) — draft months re-built");await autoPopulateFrom(k0,"roster rules updated")}}
+}catch(err){console.error(err)}}
+</script>
+</body>
+</html>
